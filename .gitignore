@@ -1,0 +1,16 @@
+outputs/*
+!outputs/.gitkeep
+.env
+.env.local
+floci-data/
+data/
+.floci/
+*.pem
+*.key
+*-access-key.json
+*credentials*
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
