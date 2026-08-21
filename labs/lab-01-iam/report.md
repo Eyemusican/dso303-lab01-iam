@@ -54,56 +54,67 @@ Finally, I created a real access key for `usms-dev-01`, redirected the output di
 
 **Screenshot 1 — Environment running**
 ![Floci container running with hybrid storage](../../screenshots/step09-floci-up.png)
+
 Floci container healthy, hybrid storage mode confirmed.
 Image Source: N/A
 
 **Screenshot 2 — CLI connected to Floci**
 ![whoami.sh confirming account 000000000000](../../screenshots/step13-whoami-script.png)
+
 AWS CLI successfully reaching Floci, showing account 000000000000.
 Image Source: N/A
 
 **Screenshot 3 — Persistence proven**
 ![User surviving a full container restart](../../screenshots/step14-persistence-proof.png)
+
 Test user survived a full container restart, confirming hybrid storage works.
 Image Source: N/A
 
 **Screenshot 4 — Groups created**
 ![The 3 IAM groups created](../../screenshots/step18-groups-verified.png)
+
 usms-admins, usms-developers, usms-auditors created and verified.
 Image Source: N/A
 
 **Screenshot 5 — Users created**
 ![The 3 IAM users created](../../screenshots/step19-users-created.png)
+
 usms-admin-01, usms-dev-01, usms-audit-01 created with correct ARNs.
 Image Source: N/A
 
 **Screenshot 6 — Developer policy attached**
 ![USMSDeveloperBase policy attached to 2 groups](../../screenshots/step22-verification.png)
+
 USMSDeveloperBase attached to both usms-developers and usms-admins.
 Image Source: N/A
 
 **Screenshot 7 — S3 policy created**
 ![S3 bucket-vs-object policy created](../../screenshots/step23-s3-policy-created.png)
+
 USMSStudentDataReadWrite created with correct bucket and object ARNs.
 Image Source: N/A
 
 **Screenshot 8 — Inline vs attached policy**
 ![Inline vs attached policy distinction](../../screenshots/step25-attached-vs-inline.png)
+
 Shows inline policy listed separately from attached policies.
 Image Source: N/A
 
 **Screenshot 9 — EC2 role verified**
 ![EC2 role trust policy and attached permissions](../../screenshots/step28-role-verification.png)
+
 usms-ec2-app-role with correct trust principal and attached policy.
 Image Source: N/A
 
 **Screenshot 10 — Temporary credentials**
 ![Identity after assuming usms-developer-role](../../screenshots/step30-assumed-identity.png)
+
 Identity changed to assumed role ARN after sts assume-role.
 Image Source: N/A
 
 **Screenshot 11 — Secret protected**
 ![Git blocking the real access key file](../../screenshots/step31-git-protection-verified.png)
+
 Git correctly ignoring the real access key file.
 Image Source: N/A
 
@@ -119,6 +130,7 @@ Image Source: N/A
 
 **Screenshot 12 — Final commit history**
 ![Final Git commit history](../../screenshots/step33-final-commit.png)
+
 Three commits in order, with .gitignore as the oldest commit.
 Image Source: N/A
 
