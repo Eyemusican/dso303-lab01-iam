@@ -1,5 +1,16 @@
 # Lab 1 — Identity and Access Management (IAM)
 
+**Student Name:** Tenzin Namgay
+
+**Student ID:** 02230307
+
+**Module:** DSO303 — Cloud Native Infrastructure
+
+**Practical:** Lab 1 — IAM
+
+
+
+
 ## 1. Aim / Objective
 
 The aim of this lab was to set up a local AWS environment using Floci, install and configure the AWS CLI, and build the complete IAM foundation (users, groups, policies, and roles) required for the University Student Management System (USMS) project.
@@ -118,21 +129,13 @@ Image Source: N/A
 Git correctly ignoring the real access key file.
 Image Source: N/A
 
-### 6.2 Verification Summary
+### 6.2 AWS Management Console Verification
 
-- Environment: Floci running via Docker Compose, hybrid storage, persistence proven
-- 3 groups, 3 users, correct memberships
-- 4 customer managed policies + 1 inline policy
-- 3 roles with correct trust policies + 1 instance profile
-- Temporary credentials obtained and used via STS
-- Secret access key created and protected by `.gitignore`
-- All work committed to Git with `.gitignore` as the first commit
+Floci does not have a graphical web console like real AWS does. It only works through the command line, which is confirmed in the lab's own notes about Floci's limitations. Because of this, I was not able to take any AWS Console screenshots for this section.
 
-**Screenshot 12 — Final commit history**
+Instead, I verified everything through the CLI output shown in Section 6.1, and the final Git commit history below confirms that all the required resources were created successfully.
+
 ![Final Git commit history](../../screenshots/step33-final-commit.png)
-
-Three commits in order, with .gitignore as the oldest commit.
-Image Source: N/A
 
 ## 7. Analysis and Discussion
 
