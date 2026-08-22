@@ -4,9 +4,9 @@
 
 **Student ID:** 02230307
 
-**Module:** DSO303 — Cloud Native Infrastructure
+**Module:** DSO303 : Cloud Native Infrastructure
 
-**Practical:** Lab 1 — IAM
+**Practical:** Lab 1 : IAM
 
 
 
