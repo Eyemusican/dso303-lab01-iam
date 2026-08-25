@@ -1,4 +1,4 @@
-# Lab 1 — Identity and Access Management (IAM)
+# Lab 1: Identity and Access Management (IAM)
 
 **Student Name:** Tenzin Namgay
 
@@ -35,7 +35,7 @@ I built 3 groups, 3 users, 4 customer managed policies, 1 inline policy, and 3 r
 
 ## 5. Implementation Procedure
 
-### Part A — Environment Setup
+### Part A: Environment Setup
 
 I created the full project directory structure first, before starting any service, so the configuration would be committed from the very first run. I wrote `.gitignore` and initialised Git before creating any secret, then proved the ignore rules worked by creating a fake secret file and confirming Git blocked it.
 
@@ -43,7 +43,7 @@ I learned that Floci defaults to `memory` storage mode, meaning all data is lost
 
 I installed AWS CLI v2 and created a profile named `floci` pointing at `http://localhost:4566`. I proved isolation from real AWS three ways: checking the account number was `000000000000`, inspecting the actual request URL with `--debug`, and confirming that stopping Floci broke the CLI. I then proved persistence by creating a test user, fully restarting the container, and confirming the user still existed afterward.
 
-### Part B — Building the IAM Foundation
+### Part B: Building the IAM Foundation
 
 I created 3 IAM groups and 3 users, placed each user in the correct group, and attached an AWS managed `ReadOnlyAccess` policy to the auditors group.
 
@@ -63,67 +63,67 @@ Finally, I created a real access key for `usms-dev-01`, redirected the output di
 
 ### 6.1 CLI / SDK Evidence
 
-**Screenshot 1 — Environment running**
+**Screenshot 1: Environment running**
 ![Floci container running with hybrid storage](../../screenshots/step09-floci-up.png)
 
 Floci container healthy, hybrid storage mode confirmed.
 Image Source: N/A
 
-**Screenshot 2 — CLI connected to Floci**
+**Screenshot 2: CLI connected to Floci**
 ![whoami.sh confirming account 000000000000](../../screenshots/step13-whoami-script.png)
 
 AWS CLI successfully reaching Floci, showing account 000000000000.
 Image Source: N/A
 
-**Screenshot 3 — Persistence proven**
+**Screenshot 3: Persistence proven**
 ![User surviving a full container restart](../../screenshots/step14-persistence-proof.png)
 
 Test user survived a full container restart, confirming hybrid storage works.
 Image Source: N/A
 
-**Screenshot 4 — Groups created**
+**Screenshot 4: Groups created**
 ![The 3 IAM groups created](../../screenshots/step18-groups-verified.png)
 
 usms-admins, usms-developers, usms-auditors created and verified.
 Image Source: N/A
 
-**Screenshot 5 — Users created**
+**Screenshot 5: Users created**
 ![The 3 IAM users created](../../screenshots/step19-users-created.png)
 
 usms-admin-01, usms-dev-01, usms-audit-01 created with correct ARNs.
 Image Source: N/A
 
-**Screenshot 6 — Developer policy attached**
+**Screenshot 6: Developer policy attached**
 ![USMSDeveloperBase policy attached to 2 groups](../../screenshots/step22-verification.png)
 
 USMSDeveloperBase attached to both usms-developers and usms-admins.
 Image Source: N/A
 
-**Screenshot 7 — S3 policy created**
+**Screenshot 7: S3 policy created**
 ![S3 bucket-vs-object policy created](../../screenshots/step23-s3-policy-created.png)
 
 USMSStudentDataReadWrite created with correct bucket and object ARNs.
 Image Source: N/A
 
-**Screenshot 8 — Inline vs attached policy**
+**Screenshot 8: Inline vs attached policy**
 ![Inline vs attached policy distinction](../../screenshots/step25-attached-vs-inline.png)
 
 Shows inline policy listed separately from attached policies.
 Image Source: N/A
 
-**Screenshot 9 — EC2 role verified**
+**Screenshot 9: EC2 role verified**
 ![EC2 role trust policy and attached permissions](../../screenshots/step28-role-verification.png)
 
 usms-ec2-app-role with correct trust principal and attached policy.
 Image Source: N/A
 
-**Screenshot 10 — Temporary credentials**
+**Screenshot 10: Temporary credentials**
 ![Identity after assuming usms-developer-role](../../screenshots/step30-assumed-identity.png)
 
 Identity changed to assumed role ARN after sts assume-role.
 Image Source: N/A
 
-**Screenshot 11 — Secret protected**
+**Screenshot 11: Secret protected**
 ![Git blocking the real access key file](../../screenshots/step31-git-protection-verified.png)
 
 Git correctly ignoring the real access key file.
@@ -169,3 +169,4 @@ This lab helped me build the complete IAM setup for the USMS project. I created 
 - Policy files: `policies/` directory in the repository
 - Scripts: `scripts/setup/`, `scripts/utilities/`, `scripts/cleanup/`
 - Lab notes: `labs/lab-01-iam/lab-01-notes.md`
+

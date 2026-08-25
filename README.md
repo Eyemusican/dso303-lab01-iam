@@ -1,4 +1,4 @@
-# AWS CLI + Floci — USMS Course Project
+# AWS CLI + Floci: USMS Course Project
 
 Infrastructure for the **University Student Management System (USMS)**, built lab by lab
 with the AWS CLI against [Floci](https://floci.io), a local AWS emulator.

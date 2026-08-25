@@ -1,4 +1,4 @@
-# Lab 01 — IAM — completed
+# Lab 01 IAM, completed
 
 ## What exists after this lab
 - Environment: Floci via docker-compose.yml, FLOCI_STORAGE_MODE=hybrid,
@@ -29,7 +29,7 @@
 
 I carried out the installation of the Floci CLI using the official PowerShell script three separate times, but every time it resulted in a different file size (31MB, 3.7MB, and 41MB), which Windows rejected as "not a valid application for this operating system." I found the underlying reason was that my regular internet connection was corrupting the download. The problem was resolved when I switched to a mobile hotspot for the next attempt.
 
-2. AWS CLI could not communicate with Floci — missing endpoint_url
+2. AWS CLI could not communicate with Floci: missing endpoint_url
 
 After I completed the configuration of the floci profile, the aws iam list-users command resulted in an error stating InvalidClientTokenId, indicating that AWS CLI was attempting to connect to real AWS instead of the local emulator. I examined ~/.aws/config and found the endpoint_url parameter was missing entirely. I added it manually, which resolved the error.
 
