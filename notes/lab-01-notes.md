@@ -1,26 +1,13 @@
 # Lab 01 Notes
 
-
-
 ## Exercise 4 — Backup operator design decision
 
-
-
-I chose a role for the USMS backup operator instead of a user or a group. This is an automated nightly job with no person typing commands, so it should not have a permanent access key sitting on a server or inside a script where it could leak. A role only hands out temporary credentials when the job actually runs, which is the same reasoning behind usms-ec2-app-role in Step 28. A role is the right choice whenever a service or a scheduled process, not a human, needs to act.
-
-
+I went with a role for the backup operator, not a user or group, since this is an automated nightly job with nobody typing commands. A role only hands out temporary credentials when the job actually runs, so there's no permanent access key sitting on a server or inside a script that could leak. Same reasoning as usms-ec2-app-role in Step 28, a role is the right call whenever a service or scheduled process needs to act, not a person.
 
 ### Three ways this policy could still be abused
 
+1. The archive bucket could be used to move data out. The role can copy anything from usms-student-data into usms-archive, so if the archive bucket itself is readable by anything outside this role's intended use, student data effectively leaves its controlled location. I would close this by putting a bucket policy on usms-archive that only allows access from this specific role.
 
+2. The logging permission covers the whole log group, not one stream. If another process also had write access to the same log group, it could write fake completion log entries that look like they came from the backup job. I would close this by giving each run its own timestamped log stream and scoping the policy tighter, or adding a Condition on logs:PutLogEvents that checks the stream name pattern.
 
-1. **The archive bucket could be used to exfiltrate data.** The role can copy anything from usms-student-data into usms-archive. If someone with access to the archive bucket from outside this role's intended use could read it, student data effectively leaves its controlled location. I would close this by adding a bucket policy on usms-archive that only allows access from this specific role, and nothing else.
-
-
-
-2. **Log group access is broader than one log stream.** The Resource for the logging statement is scoped to the log group /usms/backup-operator, but not to a single log stream inside it. If another process also had permission to write to that same log group, it could inject false completion log entries that look like they came from the backup job. I would close this by having each run generate a unique, timestamped log stream name that the policy could reference more strictly, or by using a Condition on logs:PutLogEvents that checks the log stream name pattern.
-
-
-
-3. **The role can be assumed by anything running as an EC2 instance in the account, not just the backup job's specific instance.** The trust policy trusts the whole ec2.amazonaws.com service, so any EC2 instance profile pointed at this role could assume it, not only the one actually running the nightly backup. I would close this by adding a Condition on the trust policy using aws:SourceArn or a similar key to restrict which specific EC2 resource, or which specific instance profile, is allowed to assume the role.
-
+3. The trust policy trusts all of ec2.amazonaws.com, so any EC2 instance profile in the account could assume this role, not just the one running the actual backup job. I would close this with a Condition on the trust policy using aws:SourceArn to restrict which specific instance or instance profile is allowed to assume it.
