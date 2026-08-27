@@ -188,3 +188,63 @@ I already proved in Step 15 that restarting Floci and recreating the security gr
 
 
 
+
+## Exercise 3: Problem solving, prove a claim about the network
+
+I wrote scripts/utilities/lab-02-network-report.sh to label every subnet in usms-vpc as PUBLIC, PRIVATE, or ISOLATED, based only on its actual route table, never its name or tag. It resolves the VPC by tag, lists every subnet in it, then for each one finds its associated route table and checks the target of its 0.0.0.0/0 route. An igw target means PUBLIC, a nat target means PRIVATE, and no default route at all means ISOLATED.
+
+I used set -uo pipefail without -e, since the constraint says the script must not fail if a subnet has no default route. With -e on, a query that comes back empty for an ISOLATED subnet could exit the whole script early instead of just printing that one line and moving to the next subnet.
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/configs/course.env"
+
+VPC_ID=$(aws ec2 describe-vpcs \
+  --filters "Name=tag:Name,Values=usms-vpc" \
+  --query 'Vpcs[0].VpcId' --output text)
+
+SUBNET_IDS=$(aws ec2 describe-subnets \
+  --filters "Name=vpc-id,Values=$VPC_ID" \
+  --query 'Subnets[].SubnetId' --output text)
+
+for s in $SUBNET_IDS; do
+  name=$(aws ec2 describe-subnets --subnet-ids "$s" \
+          --query 'Subnets[0].Tags[?Key==`Name`]|[0].Value' --output text)
+  cidr=$(aws ec2 describe-subnets --subnet-ids "$s" \
+          --query 'Subnets[0].CidrBlock' --output text)
+  az=$(aws ec2 describe-subnets --subnet-ids "$s" \
+          --query 'Subnets[0].AvailabilityZone' --output text)
+
+  rt=$(aws ec2 describe-route-tables \
+        --filters "Name=association.subnet-id,Values=$s" \
+        --query 'RouteTables[0].RouteTableId' --output text)
+
+  gateway=$(aws ec2 describe-route-tables --route-table-ids "$rt" \
+        --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`].GatewayId | [0]' \
+        --output text)
+  nat=$(aws ec2 describe-route-tables --route-table-ids "$rt" \
+        --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`].NatGatewayId | [0]' \
+        --output text)
+
+  if [[ "$gateway" == igw-* ]]; then
+    printf '%-24s%-14s%-14s%-9s via %s\n' "$name" "$cidr" "$az" "PUBLIC" "$gateway"
+  elif [[ "$nat" == nat-* ]]; then
+    printf '%-24s%-14s%-14s%-9s via %s\n' "$name" "$cidr" "$az" "PRIVATE" "$nat"
+  else
+    printf '%-24s%-14s%-14s%-9s no default route\n' "$name" "$cidr" "$az" "ISOLATED"
+  fi
+done
+```
+
+![Running from the repo root](../../screenshots/lab02-exercise3-report-output.png)
+
+All five subnets classify correctly this way. None came back ISOLATED, which makes sense since every subnet I have does have a default route, the public ones through the internet gateway and the private ones through the NAT gateway.
+
+![Running from a different directory gives the same output](../../screenshots/lab02-exercise3-different-dir.png)
+
+I ran it from my home directory and from inside the repo, and got the exact same five lines both times, so the script does not depend on where it is run from.
+
+
