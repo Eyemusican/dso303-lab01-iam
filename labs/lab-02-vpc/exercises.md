@@ -122,3 +122,69 @@ aws ec2 describe-route-tables \
 
 Five subnets now exist in the VPC, and usms-public-rt shows three associations instead of two. I did not add this subnet to configs/lab-02.env since the exercise says it's practice only and Exercise 4 asks me to remove it later.
 
+
+
+
+## Exercise 2: Intermediate, a bastion security group
+
+I created usms-bastion-sg for a future jump host, allowing SSH only from 203.0.113.10/32 (a documentation address, since I did not want to expose my real IP), with a description on the rule.
+
+```bash
+BASTION_SG_ID=$(aws ec2 create-security-group \
+  --group-name usms-bastion-sg \
+  --description "USMS bastion host: SSH jump box for administrative access" \
+  --vpc-id "$VPC_ID" \
+  --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=usms-bastion-sg},{Key=Project,Value=USMS},{Key=Tier,Value=bastion}]' \
+  --query 'GroupId' \
+  --output text)
+
+aws ec2 authorize-security-group-ingress \
+  --group-id "$BASTION_SG_ID" \
+  --ip-permissions IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges='[{CidrIp=203.0.113.10/32,Description="SSH from admin workstation"}]' \
+  --query 'SecurityGroupRules[0].SecurityGroupRuleId' --output text
+```
+
+![Bastion security group created](../../screenshots/lab02-exercise2-bastion-created.png)
+
+Then I checked the existing SSH rule on usms-app-sg to get its exact rule ID before touching anything.
+
+```bash
+aws ec2 describe-security-group-rules \
+  --filters "Name=group-id,Values=$APP_SG_ID" \
+  --query 'SecurityGroupRules[?FromPort==`22`]' \
+  --output json
+```
+
+![Old CIDR based SSH rule found](../../screenshots/lab02-exercise2-old-ssh-rule.png)
+
+I added a new SSH rule on usms-app-sg referencing usms-bastion-sg as the source, then revoked the old 10.0.0.0/16 rule by its exact rule ID.
+
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id "$APP_SG_ID" \
+  --ip-permissions IpProtocol=tcp,FromPort=22,ToPort=22,UserIdGroupPairs='[{GroupId='"$BASTION_SG_ID"',Description="SSH from bastion host only"}]' \
+  --query 'SecurityGroupRules[0].SecurityGroupRuleId' --output text
+
+aws ec2 revoke-security-group-ingress \
+  --group-id "$APP_SG_ID" \
+  --security-group-rule-ids sgr-89959e9bdf0539e05
+```
+
+
+When I checked the result, both commands had reported success, but neither actually worked the way they should have.
+
+```bash
+aws ec2 describe-security-group-rules \
+  --filters "Name=group-id,Values=$APP_SG_ID" \
+  --query 'SecurityGroupRules[?FromPort==`22`]' \
+  --output json
+```
+
+![Verification shows the same Floci bug from Step 15](../../screenshots/lab02-exercise2-verify.png)
+
+The old CIDR based rule (sgr-89959e9bdf0539e05) was still there even though revoke-security-group-ingress reported Return: true, and the new rule I added had no UserIdGroupPairs at all, so the source reference did not save. This is the same bug I ran into in Step 15 with usms-db-sg, except this time it happened on a different security group and a different rule, so it looks like a real, repeatable limitation in this Floci build rather than something tied to one specific rule.
+
+I already proved in Step 15 that restarting Floci and recreating the security group from scratch does not fix this, so I did not repeat that here. The design itself is correct, usms-app-sg's SSH rule is meant to be sourced from usms-bastion-sg instead of the whole VPC range, that intent is fully captured in the commands above, even though Floci's storage cannot reflect it properly.
+
+
+
