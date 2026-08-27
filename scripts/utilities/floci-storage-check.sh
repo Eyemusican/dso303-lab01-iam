@@ -51,7 +51,9 @@ else
   set -- $m
   if [ "$1" = "bind" ]; then
     ok "bind mount -> $2"
-    [ "$2" = "$FLOCI_HOST_DATA_DIR" ] || bad "...but that is NOT $FLOCI_HOST_DATA_DIR"
+    normalized_mount=$(echo "$2" | sed -E 's|^([A-Za-z]):|/\L\1|')
+    normalized_expected=$(echo "$FLOCI_HOST_DATA_DIR" | sed -E 's|^([A-Za-z]):|/\L\1|')
+    [ "$normalized_mount" = "$normalized_expected" ] || bad "...but that is NOT $FLOCI_HOST_DATA_DIR"
   else
     bad "/app/data is a Docker '$1', not your host directory."
     note "A literal '~' in the path is the usual cause; nothing expands it."
@@ -62,7 +64,7 @@ hdr "4. Sidecar storage (RDS / OpenSearch / MSK / ECR)"
 hp="$(envof FLOCI_STORAGE_HOST_PERSISTENT_PATH)"
 if [ -z "$hp" ]; then
   bad "FLOCI_STORAGE_HOST_PERSISTENT_PATH is unset — sidecars use anonymous volumes."
-elif [ "${hp#/}" = "$hp" ]; then
+elif [ "${hp#/}" = "$hp" ] && [ "${hp:1:1}" != ":" ]; then
   bad "FLOCI_STORAGE_HOST_PERSISTENT_PATH='$hp' is not absolute. Floci rejects it."
 else
   ok "FLOCI_STORAGE_HOST_PERSISTENT_PATH=$hp"
