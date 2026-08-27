@@ -248,3 +248,91 @@ All five subnets classify correctly this way. None came back ISOLATED, which mak
 I ran it from my home directory and from inside the repo, and got the exact same five lines both times, so the script does not depend on where it is run from.
 
 
+
+## Exercise 4: Challenge, design and defend
+
+### The scenario
+
+The project lead wants an exam-results service, reachable only from campus (10.10.0.0/16, arriving over VPN), reading the transcripts database, never reachable from the public internet, but still needing to download security patches.
+
+### Which subnet, and why
+
+The service goes in usms-private-subnet-a. It reads the transcripts database and must never be reachable from the public internet, that description is exactly what a private subnet is for, no route to the internet gateway at all. There is no reason to build a new subnet since the private tier already exists for exactly this purpose.
+
+### Security groups
+
+I would create a new group, usms-exam-sg, and modify usms-db-sg to add it as a source.
+
+usms-exam-sg inbound:
+- TCP 443 from 10.10.0.0/16, since staff reach the service over the campus VPN and nowhere else should be able to.
+
+usms-exam-sg outbound:
+- TCP 443 to 0.0.0.0/0, since the service needs to reach out to download security patches, and that traffic leaves through the NAT gateway, not directly to the internet.
+
+usms-db-sg addition:
+- TCP 5432 from usms-exam-sg, so the exam-results service can read the transcripts database the same way usms-app-sg already can, sourced from a group rather than an address range for the same reason Step 15 explains.
+
+### NACL
+
+No NACL change is needed. usms-private-nacl already allows inbound TCP 443 outbound and the 1024-65535 ephemeral range both ways, which covers this service's traffic pattern completely, it is the same kind of HTTPS-out, database-in traffic the private tier is already built to handle.
+
+### Second NAT gateway in AZ b
+
+A NAT gateway costs about $0.045 per hour plus $0.045 per GB processed in us-east-1 (AWS VPC pricing page), which comes out to roughly $32 a month per gateway before any data even crosses it, matching what this lab's own Floci vs Real AWS section already says.
+
+Right now there is one NAT gateway, in usms-public-subnet-a, serving both AZ a and AZ b's private subnets. If AZ a goes down, the private subnet in AZ b loses outbound access too, even though its own instances are fine, because the NAT gateway itself lives in the AZ that failed.
+
+Adding a second NAT gateway in AZ b would fix that, but it doubles this specific cost to about $64 a month, and that is already one of the largest line items on a small VPC's bill. For a service like exam results, which mainly needs occasional outbound patch downloads rather than constant traffic, I would not add a second NAT gateway. The cost is not justified by the risk for this particular service. I would only reconsider if the exam-results service or something else in the private tier became critical enough that an AZ outage causing a temporary loss of outbound patching access was unacceptable.
+
+### What to delete
+
+usms-public-subnet-c from Exercise 1 should be removed, since it was only created as practice and nothing depends on it.
+
+What will be deleted: usms-public-subnet-c and its association with usms-public-rt.
+
+What depends on it: nothing. It has no instances, no other resource references it.
+
+Reversible? Yes, it can be recreated with the exact same command from Exercise 1 if needed again.
+
+Effect on later labs: none.
+
+Deletion order: disassociate it from usms-public-rt first, then delete the subnet itself. A subnet cannot be deleted while still associated with a route table.
+
+### Implementation
+
+I only implemented the security group part, since the rest above is a design, not something to build yet.
+
+```bash
+EXAM_SG_ID=$(aws ec2 create-security-group \
+  --group-name usms-exam-sg \
+  --description "USMS exam results service: HTTPS from campus VPN only, HTTPS out for patches" \
+  --vpc-id "$VPC_ID" \
+  --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=usms-exam-sg},{Key=Project,Value=USMS},{Key=Tier,Value=exam}]' \
+  --query 'GroupId' \
+  --output text)
+
+aws ec2 authorize-security-group-ingress \
+  --group-id "$EXAM_SG_ID" \
+  --ip-permissions IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges='[{CidrIp=10.10.0.0/16,Description="HTTPS from campus VPN"}]'
+
+aws ec2 authorize-security-group-egress \
+  --group-id "$EXAM_SG_ID" \
+  --ip-permissions IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges='[{CidrIp=0.0.0.0/0,Description="HTTPS out for security patches"}]'
+
+aws ec2 authorize-security-group-ingress \
+  --group-id "$DB_SG_ID" \
+  --ip-permissions IpProtocol=tcp,FromPort=5432,ToPort=5432,UserIdGroupPairs='[{GroupId='"$EXAM_SG_ID"',Description="PostgreSQL from the exam results service"}]'
+```
+
+
+Same as Exercise 2, the group-referenced rule on usms-db-sg likely lost its source given the Floci bug from Step 15, but the group itself and its own two rules should be real and checkable.
+
+```bash
+aws ec2 describe-security-groups --group-ids "$EXAM_SG_ID" --output json
+```
+
+![Exam security group rules verified](../../screenshots/lab02-exercise4-exam-sg-verify-1.png)
+
+![Exam security group rules verified, part 2](../../screenshots/lab02-exercise4-exam-sg-verify-2.png)
+
+
