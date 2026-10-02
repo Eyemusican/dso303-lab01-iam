@@ -1,0 +1,28 @@
+{
+  "ImageId": "ami-0abcdef1234567890",
+  "InstanceType": "t3.micro",
+  "MinCount": 1,
+  "MaxCount": 1,
+  "KeyName": "usms-app-key",
+  "SubnetId": "subnet-07d92642",
+  "SecurityGroupIds": ["sg-53dba8db862ba5440"],
+  "IamInstanceProfile": { "Name": "usms-ec2-app-profile" },
+  "TagSpecifications": [
+    {
+      "ResourceType": "instance",
+      "Tags": [
+        { "Key": "Name",    "Value": "usms-web-01" },
+        { "Key": "Project", "Value": "USMS" },
+        { "Key": "Tier",    "Value": "web" },
+        { "Key": "Lab",     "Value": "03" }
+      ]
+    },
+    {
+      "ResourceType": "volume",
+      "Tags": [
+        { "Key": "Name",    "Value": "usms-web-01-root" },
+        { "Key": "Project", "Value": "USMS" }
+      ]
+    }
+  ]
+}
