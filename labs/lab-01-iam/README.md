@@ -1,5 +1,16 @@
 # Lab 01 IAM, completed
 
+Tenzin Namgay (02230307), DSO303
+
+## Where to find everything
+
+- **Report:** [report.md](report.md)
+- **Exercises:** [exercises.md](exercises.md)
+- **Notes and review questions:** in the `notes` folder at the repo root, [notes/lab-01-notes.md](../../notes/lab-01-notes.md) (a copy is also in this folder, [lab-01-notes.md](lab-01-notes.md))
+- **Screenshots:** in the `screenshots` folder at the repo root, [open the screenshots folder](../../screenshots). Each screenshot is linked in the report and exercises at the step where it was taken.
+- **IAM policy and trust documents:** in the `policies` folder at the repo root, [open the policies folder](../../policies)
+- **Scripts and config:** `../../docker-compose.yml`, `../../configs/lab-01.env`, `../../scripts/utilities/verify-lab-01.sh`, `../../scripts/utilities/whoami.sh`, `../../scripts/utilities/floci-storage-check.sh`, `../../scripts/cleanup/lab-01-cleanup.sh` (end of course only, not run)
+
 ## What exists after this lab
 - Environment: Floci via docker-compose.yml, FLOCI_STORAGE_MODE=hybrid,
   bind-mounted to ~/floci-data, persistence proven in Step 14
