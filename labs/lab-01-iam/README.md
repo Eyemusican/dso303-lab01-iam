@@ -16,7 +16,7 @@ Tenzin Namgay (02230307), DSO303
   bind-mounted to ~/floci-data, persistence proven in Step 14
 - Groups: usms-admins, usms-developers, usms-auditors
 - Users: usms-admin-01, usms-dev-01, usms-audit-01
-- Customer managed policies: USMSDeveloperBase (v2), USMSStudentDataReadWrite,
+- Customer managed policies: USMSDeveloperBase (v3), USMSStudentDataReadWrite,
   USMSAssumeAppRoles, USMSLambdaBasic
 - Inline policy: USMSSelfManageCredentials on usms-dev-01
 - Roles: usms-ec2-app-role, usms-lambda-exec-role, usms-developer-role
@@ -32,7 +32,7 @@ Tenzin Namgay (02230307), DSO303
 - [ ] whoami.sh output showing account 000000000000
 - [ ] floci-storage-check.sh output, all [ok]
 - [ ] Step 14 persistence proof (user survived a restart)
-- [ ] verify-lab-01.sh with FAIL=0
+- [x] verify-lab-01.sh with FAIL=0
 
 ## Problems I hit and how I fixed them
 
