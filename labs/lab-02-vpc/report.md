@@ -37,6 +37,10 @@ I assumed `usms-developer-role` and created the VPC as that identity, rather tha
 
 ![VPC created while holding the assumed role](../../screenshots/step03-vpc-created.png)
 
+The assume-role output, with the temporary credentials, went into outputs/lab-02-assumed-role.json. I checked that Git ignores it, and git check-ignore named rule 1 of .gitignore, outputs/*.
+
+![The assumed role credentials file is git ignored](../../screenshots/lab02-check-ignore.png)
+
 I enabled DNS support and DNS hostnames on the VPC, then created and attached an internet gateway.
 
 ![Internet gateway attached](../../screenshots/step06-igw-verify.png)

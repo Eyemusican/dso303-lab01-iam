@@ -1,87 +1,5 @@
 # Lab 02: Independent Lab Exercises
 
-## Exercise 5: Integration, complete the second Availability Zone
-
-RDS needs subnets across at least two Availability Zones for its subnet group in a later lab, and the private tier only existed in one AZ so far. I had to create usms-private-subnet-b while holding usms-developer-role credentials, not my normal identity.
-
-I checked my identity before assuming the role, assumed it, checked identity again to confirm the switch, then created the subnet and associated it with usms-private-rt, all while still holding the assumed role's credentials.
-
-```bash
-aws sts get-caller-identity
-
-aws sts assume-role \
-  --role-arn "$ROLE_ARN" \
-  --role-session-name "lab02-exercise5" \
-  --profile usms-dev \
-  > outputs/lab-02-exercise5-assumed-role.json
-
-export AWS_ACCESS_KEY_ID=$(jq -r '.Credentials.AccessKeyId' outputs/lab-02-exercise5-assumed-role.json)
-export AWS_SECRET_ACCESS_KEY=$(jq -r '.Credentials.SecretAccessKey' outputs/lab-02-exercise5-assumed-role.json)
-export AWS_SESSION_TOKEN=$(jq -r '.Credentials.SessionToken' outputs/lab-02-exercise5-assumed-role.json)
-
-aws sts get-caller-identity
-
-PRIVATE_SUBNET_B_ID=$(aws ec2 create-subnet \
-  --vpc-id "$VPC_ID" \
-  --cidr-block 10.0.4.0/24 \
-  --availability-zone "${AWS_REGION_COURSE}b" \
-  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=usms-private-subnet-b},{Key=Project,Value=USMS},{Key=Tier,Value=private},{Key=AZ,Value=b}]' \
-  --query 'Subnet.SubnetId' \
-  --output text)
-
-aws ec2 associate-route-table \
-  --route-table-id "$PRIVATE_RT_ID" \
-  --subnet-id "$PRIVATE_SUBNET_B_ID"
-```
-
-![Subnet created by the assumed role](../../screenshots/lab02-exercise5-created-by-role.png)
-
-The identity before shows my normal root account, and the identity while assumed shows the assumed role ARN instead, so the subnet really was created while holding usms-developer-role, not my own identity.
-
-Next I applied usms-private-nacl to the new subnet, same replace-association pattern from Step 18, except this time I actually checked it landed on the right subnet before moving on, since I made that exact mistake in Step 18 the first time.
-
-```bash
-NACL_ASSOC_B=$(aws ec2 describe-network-acls \
-  --filters "Name=association.subnet-id,Values=$PRIVATE_SUBNET_B_ID" \
-  --query 'NetworkAcls[0].Associations[?SubnetId==`'"$PRIVATE_SUBNET_B_ID"'`].NetworkAclAssociationId | [0]' \
-  --output text)
-
-aws ec2 replace-network-acl-association \
-  --association-id "$NACL_ASSOC_B" \
-  --network-acl-id "$PRIVATE_NACL_ID"
-```
-
-![NACL correctly applied to both private subnets](../../screenshots/lab02-exercise5-nacl-applied.png)
-
-Both usms-private-subnet-a and usms-private-subnet-b now show up under usms-private-nacl, and nothing else does.
-
-Then I restored my normal identity right away.
-
-```bash
-unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-./scripts/utilities/whoami.sh
-```
-
-![Identity restored to root](../../screenshots/lab02-exercise5-identity-restored.png)
-
-The lab wants identity restored immediately because usms-developer-role only lasts one hour. If I kept using those credentials for unrelated work afterward, they would expire partway through and give a confusing error that has nothing to do with what actually broke.
-
-Finally I regenerated configs/lab-02.env so USMS_PRIVATE_SUBNET_B would be populated.
-
-![lab-02.env fully populated](../../screenshots/lab02-exercise5-env-regenerated.png)
-
-I re-ran verify-lab-02.sh afterward and the empty value check passed. The only thing still failing is usms-db-sg is sourced from usms-app-sg (not a CIDR), same Floci bug from Step 15 where group-referenced rules get silently dropped. I already tried fixing that one three different ways back then, so I left it documented instead.
-
-```bash
-./scripts/utilities/verify-lab-02.sh
-```
-
-![Final verify run](../../screenshots/lab02-exercise5-verify-final.png)
-
-PASS=32 FAIL=1.
-
-
-
 ## Exercise 1: Basic, a third public subnet
 
 I created usms-public-subnet-c in us-east-1c with CIDR 10.0.5.0/24, tagged the same way as the other subnets, turned on auto-assign public IP, and associated it with usms-public-rt. Same pattern as Steps 7, 8, and 11, just a different AZ and CIDR.
@@ -274,7 +192,15 @@ usms-db-sg addition:
 
 ### NACL
 
-No NACL change is needed. usms-private-nacl already allows inbound TCP 443 outbound and the 1024-65535 ephemeral range both ways, which covers this service's traffic pattern completely, it is the same kind of HTTPS-out, database-in traffic the private tier is already built to handle.
+A NACL change is needed. I read the live entries of usms-private-nacl, and neither direction of the campus traffic is allowed today. Inbound, rule 100 only allows TCP 5432 from 10.0.0.0/16 and rule 110 only allows the ephemeral range 1024 to 65535, so HTTPS on port 443 from 10.10.0.0/16 would hit the final deny rule. Outbound, rule 100 only allows 1024 to 65535 to 10.0.0.0/16 and rule 110 only allows port 443, so the replies to campus staff, which go back to their ephemeral ports in 10.10.0.0/16, would be dropped as well.
+
+NACLs are stateless, so the reply is a separate packet that needs its own rule, unlike a security group, which remembers the connection and lets the reply out automatically.
+
+As a paper design I would add two rules to usms-private-nacl:
+- Inbound rule 120: allow TCP 443 from 10.10.0.0/16, for staff requests arriving over the VPN.
+- Outbound rule 120: allow TCP 1024 to 65535 to 10.10.0.0/16, for the replies going back to campus.
+
+The patch downloads already work with the existing rules: outbound rule 110 allows 443 to 0.0.0.0/0, and inbound rule 110 allows the replies on the ephemeral ports. The database traffic does not cross the NACL at all, because usms-db-01 is in the same subnet, usms-private-subnet-a, and a NACL only filters traffic entering or leaving the subnet.
 
 ### Second NAT gateway in AZ b
 
@@ -296,7 +222,7 @@ Reversible? Yes, it can be recreated with the exact same command from Exercise 1
 
 Effect on later labs: none.
 
-Deletion order: disassociate it from usms-public-rt first, then delete the subnet itself. A subnet cannot be deleted while still associated with a route table.
+Deletion order: the subnet has nothing in it, so deleting it is a single aws ec2 delete-subnet call. I do not need to disassociate it from usms-public-rt first, because AWS removes the route table association automatically when the subnet is deleted. What would block the delete is anything still running inside the subnet, like an instance or a network interface, and there is none.
 
 ### Implementation
 
@@ -327,6 +253,8 @@ aws ec2 authorize-security-group-ingress \
 
 Same as Exercise 2, the group-referenced rule on usms-db-sg likely lost its source given the Floci bug from Step 15, but the group itself and its own two rules should be real and checkable.
 
+My design says usms-exam-sg only allows TCP 443 outbound, but a new security group starts with a default rule that allows all outbound traffic to 0.0.0.0/0, and I did not remove it, so the live group still allows everything out. To enforce the design I would revoke that default egress rule and keep only the single 443 egress rule I added.
+
 ```bash
 aws ec2 describe-security-groups --group-ids "$EXAM_SG_ID" --output json
 ```
@@ -335,4 +263,82 @@ aws ec2 describe-security-groups --group-ids "$EXAM_SG_ID" --output json
 
 ![Exam security group rules verified, part 2](../../screenshots/lab02-exercise4-exam-sg-verify-2.png)
 
+## Exercise 5: Integration, complete the second Availability Zone
 
+RDS needs subnets across at least two Availability Zones for its subnet group in a later lab, and the private tier only existed in one AZ so far. I had to create usms-private-subnet-b while holding usms-developer-role credentials, not my normal identity.
+
+I checked my identity before assuming the role, assumed it, checked identity again to confirm the switch, then created the subnet and associated it with usms-private-rt, all while still holding the assumed role's credentials.
+
+```bash
+aws sts get-caller-identity
+
+aws sts assume-role \
+  --role-arn "$ROLE_ARN" \
+  --role-session-name "lab02-exercise5" \
+  --profile usms-dev \
+  > outputs/lab-02-exercise5-assumed-role.json
+
+export AWS_ACCESS_KEY_ID=$(jq -r '.Credentials.AccessKeyId' outputs/lab-02-exercise5-assumed-role.json)
+export AWS_SECRET_ACCESS_KEY=$(jq -r '.Credentials.SecretAccessKey' outputs/lab-02-exercise5-assumed-role.json)
+export AWS_SESSION_TOKEN=$(jq -r '.Credentials.SessionToken' outputs/lab-02-exercise5-assumed-role.json)
+
+aws sts get-caller-identity
+
+PRIVATE_SUBNET_B_ID=$(aws ec2 create-subnet \
+  --vpc-id "$VPC_ID" \
+  --cidr-block 10.0.4.0/24 \
+  --availability-zone "${AWS_REGION_COURSE}b" \
+  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=usms-private-subnet-b},{Key=Project,Value=USMS},{Key=Tier,Value=private},{Key=AZ,Value=b}]' \
+  --query 'Subnet.SubnetId' \
+  --output text)
+
+aws ec2 associate-route-table \
+  --route-table-id "$PRIVATE_RT_ID" \
+  --subnet-id "$PRIVATE_SUBNET_B_ID"
+```
+
+![Subnet created by the assumed role](../../screenshots/lab02-exercise5-created-by-role.png)
+
+The identity before shows my normal root account, and the identity while assumed shows the assumed role ARN instead, so the subnet really was created while holding usms-developer-role, not my own identity.
+
+Next I applied usms-private-nacl to the new subnet, same replace-association pattern from Step 18, except this time I actually checked it landed on the right subnet before moving on, since I made that exact mistake in Step 18 the first time.
+
+```bash
+NACL_ASSOC_B=$(aws ec2 describe-network-acls \
+  --filters "Name=association.subnet-id,Values=$PRIVATE_SUBNET_B_ID" \
+  --query 'NetworkAcls[0].Associations[?SubnetId==`'"$PRIVATE_SUBNET_B_ID"'`].NetworkAclAssociationId | [0]' \
+  --output text)
+
+aws ec2 replace-network-acl-association \
+  --association-id "$NACL_ASSOC_B" \
+  --network-acl-id "$PRIVATE_NACL_ID"
+```
+
+![NACL correctly applied to both private subnets](../../screenshots/lab02-exercise5-nacl-applied.png)
+
+Both usms-private-subnet-a and usms-private-subnet-b now show up under usms-private-nacl, and nothing else does.
+
+Then I restored my normal identity right away.
+
+```bash
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+./scripts/utilities/whoami.sh
+```
+
+![Identity restored to root](../../screenshots/lab02-exercise5-identity-restored.png)
+
+The lab wants identity restored immediately because usms-developer-role only lasts one hour. If I kept using those credentials for unrelated work afterward, they would expire partway through and give a confusing error that has nothing to do with what actually broke.
+
+Finally I regenerated configs/lab-02.env so USMS_PRIVATE_SUBNET_B would be populated.
+
+![lab-02.env fully populated](../../screenshots/lab02-exercise5-env-regenerated.png)
+
+I re-ran verify-lab-02.sh afterward and the empty value check passed. The only thing still failing is usms-db-sg is sourced from usms-app-sg (not a CIDR), same Floci bug from Step 15 where group-referenced rules get silently dropped. I already tried fixing that one three different ways back then, so I left it documented instead.
+
+```bash
+./scripts/utilities/verify-lab-02.sh
+```
+
+![Final verify run](../../screenshots/lab02-exercise5-verify-final.png)
+
+PASS=32 FAIL=1.

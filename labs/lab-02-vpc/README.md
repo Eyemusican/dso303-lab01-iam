@@ -17,6 +17,7 @@ Tenzin Namgay (02230307), DSO303
 - `../../scripts/utilities/lab-02-network-report.sh`: network report script (Exercise 3)
 - `../../scripts/utilities/floci-storage-check.sh`: storage check, with the Windows path fix I made in this lab
 - `../../scripts/cleanup/lab-02-cleanup.sh`: end of course only, not run
+- `../../templates/create-vpc-skeleton.json`: the skeleton I generated for aws ec2 create-vpc with --generate-cli-skeleton in Lab 1 Step 24, ready for this lab. It stands in for the lab-02-subnet-skeleton.json name in the directory structure, because no step in Lab 2 generates a separate subnet skeleton.
 
 ## Result
 
