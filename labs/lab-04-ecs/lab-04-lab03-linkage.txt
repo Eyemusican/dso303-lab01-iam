@@ -1,0 +1,26 @@
+# Lab 04 Exercise 5: usms-enrolment-sg linkage back to Lab 03
+# Generated on 2026-10-08T09:00:34Z
+
+enrolment sg              : sg-b011f7193ccc66627 (usms-enrolment-sg)
+inbound source group      : sg-53dba8db862ba5440 (usms-app-sg)
+resolves to instance(s)   : i-00d916c5e2de6fcf8
+lab-03.env USMS_WEB_INSTANCE: i-00d916c5e2de6fcf8
+verdict                   : LOOP CLOSED
+
+Method note: Floci ignores the instance.group-id filter on describe-instances (a made up group
+sg-00000000000000000 still returned every running instance), so the match was computed from each
+running instance's own SecurityGroups list instead.
+
+This rule is temporary: Lab 05 removes it once the load balancer becomes the only caller of the
+enrolment service.
+
+== Tag audit (aws ecs list-tags-for-resource, by ARN) ==
+cluster: arn:aws:ecs:us-east-1:000000000000:cluster/usms-ecs-cluster
+Project	USMS
+Tier	app
+Name	usms-ecs-cluster
+service: arn:aws:ecs:us-east-1:000000000000:service/usms-ecs-cluster/usms-enrolment-svc
+Project	USMS
+Tier	app
+Lab	04
+Name	usms-enrolment-svc
