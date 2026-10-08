@@ -99,16 +99,21 @@ aws iam list-attached-role-policies --role-name usms-analytics-partner-role
 MaxSessionDuration is 3600, the trust policy names usms-audit-01, and USMSAnalyticsPartnerReports is attached.
 
 ```bash
+ANALYTICS_ROLE_ARN=$(aws iam get-role --role-name usms-analytics-partner-role --query 'Role.Arn' --output text | tr -d '\r')
+echo "Role ARN: $ANALYTICS_ROLE_ARN"
+echo "Called at (UTC): $(date -u +%Y-%m-%dT%H:%M:%S)"
 aws sts assume-role \
   --role-arn "$ANALYTICS_ROLE_ARN" \
   --role-session-name usms-audit-01-analytics \
   --duration-seconds 1800 \
-  --profile floci
+  --profile floci \
+  --query '{AssumedRoleArn:AssumedRoleUser.Arn,Expiration:Credentials.Expiration}' \
+  --output table
 ```
 
 ![Temporary credentials obtained](../../screenshots/exercise3-assume-role.png)
 
-Expiration came back as 2026-08-25T16:56:42, exactly 30 minutes after the call, so the duration worked as intended. I called assume-role from my normal floci profile rather than actually being usms-audit-01, same shortcut Lab 1 Step 30 used, since Floci doesn't enforce who is allowed to assume a role.
+I re-ran the command on 2026-10-08 with --query, so the screenshot no longer shows the secret key and session token. The call was made at 2026-10-08T09:47:20 UTC and Expiration came back as 2026-10-08T10:17:21 UTC, still about 30 minutes after the call, so the duration worked as intended. I called assume-role from my normal floci profile rather than actually being usms-audit-01, same shortcut Lab 1 Step 30 used, since Floci doesn't enforce who is allowed to assume a role.
 
 On sts:ExternalId, I would add one for a real external partner. Without it, anything that discovers the role ARN and holds usms-audit-01's credentials could assume it. An ExternalId is a shared secret the partner must also supply, protecting against the confused deputy problem where a third party gets tricked into assuming a role on someone else's behalf.
 
@@ -232,3 +237,7 @@ The exercise also pointed out that verify-lab-01.sh checks the default version i
 ```
 
 ![Verification script passing](../../screenshots/exercise5-verify-lab01-pass.png)
+
+
+
+

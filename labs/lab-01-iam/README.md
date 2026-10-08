@@ -29,9 +29,9 @@ Tenzin Namgay (02230307), DSO303
     ./scripts/utilities/verify-lab-01.sh
 
 ## Evidence
-- [ ] whoami.sh output showing account 000000000000
-- [ ] floci-storage-check.sh output, all [ok]
-- [ ] Step 14 persistence proof (user survived a restart)
+- [x] whoami.sh output showing account 000000000000: [step13-whoami-script.png](../../screenshots/step13-whoami-script.png)
+- [x] floci-storage-check.sh output, all [ok]: [lab01-storage-check-all-ok.png](../../screenshots/lab01-storage-check-all-ok.png)
+- [x] Step 14 persistence proof (user survived a restart): [step14-persistence-proof.png](../../screenshots/step14-persistence-proof.png)
 - [x] verify-lab-01.sh with FAIL=0
 
 ## Problems I hit and how I fixed them
