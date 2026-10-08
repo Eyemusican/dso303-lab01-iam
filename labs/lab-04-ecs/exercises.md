@@ -105,3 +105,19 @@ runningCount reached 0 on the third check, delete-service returned INACTIVE, and
 
 ![Results service deleted](../../screenshots/lab04-ex4-results-deleted.png)
 ![Verify after deletion](../../screenshots/lab04-ex4-verify-after.png)
+
+## Exercise 5: Close the loop back to Lab 3, and hand Lab 05 what it needs
+
+usms-enrolment-sg has one inbound rule, tcp 80 from the group sg-53dba8db862ba5440 (usms-app-sg). I resolved that group back to the instance that carries it, so the rule is shown to point at something real.
+
+**The reverse lookup:** I ran describe-instances with the filter instance.group-id=sg-53dba8db862ba5440. It returned usms-web-01, usms-db-01 and usms-db-02. That looked like a mismatch, so I checked instead of accepting it. Reading each running instance's own SecurityGroups showed only usms-web-01 carries usms-app-sg, while usms-db-01 and usms-db-02 carry usms-db-sg, as Lab 3 set them up. I then ran the same filter with a group that does not exist, sg-00000000000000000, and it still returned all three instances. So Floci ignores the instance.group-id filter, the same kind of gap as the image tag filter in Lab 3 Step 20. I computed the match from the real SecurityGroups lists instead.
+
+**Result:** the group resolves to exactly one instance, i-00d916c5e2de6fcf8, which matches USMS_WEB_INSTANCE in configs/lab-03.env. Verdict: LOOP CLOSED.
+
+**The linkage file:** I wrote outputs/lab-04-lab03-linkage.txt with the source group, the instance it resolves to, the LOOP CLOSED verdict, a note on the Floci filter, and the sentence that this rule is temporary because Lab 05 removes it once the load balancer becomes the only caller. outputs/ is git ignored, and the lab expects a committed file, so I also committed a copy at [lab-04-lab03-linkage.txt](lab-04-lab03-linkage.txt). It contains IDs only, no secrets.
+
+**Tag audit:** I ran aws ecs list-tags-for-resource against the cluster ARN and the service ARN from configs/lab-04.env (this call takes an ARN, not a name, unlike most ECS calls in this lab) and appended the result to the file. The cluster has Name, Project=USMS and Tier=app, and the service has Name, Project=USMS, Tier=app and Lab=04. This Floci build stored the tags from create-cluster and create-service, so nothing needed fixing with tag-resource.
+
+![Floci ignores the group filter](../../screenshots/lab04-ex5-filter-ignored.png)
+![Linkage file](../../screenshots/lab04-ex5-linkage.png)
+![Tag audit](../../screenshots/lab04-ex5-tag-audit.png)

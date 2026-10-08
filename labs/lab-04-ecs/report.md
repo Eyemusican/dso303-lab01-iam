@@ -113,6 +113,8 @@ Because a revision cannot be edited, I copied the template, changed only the ima
 
 I read the service back: ACTIVE, desired 2, running 2, pending 0, FARGATE, two private subnets, public IP DISABLED. list-tasks without a status filter returned 282 tasks, which was 2 running plus 280 stopped from the crash loop. Then I scaled to 3 and back to 2 by hand and watched the tasks follow.
 
+Later, in Exercise 2, I registered usms-enrolment:4 with memory raised to 1024 MiB and pointed the service at it, so the service now runs revision 4.
+
 ![Service details](../../screenshots/lab04-step11-service-details.png)
 ![Task counts](../../screenshots/lab04-step11-tasks-count.png)
 ![Scaling by hand](../../screenshots/lab04-step11-scale-by-hand.png)

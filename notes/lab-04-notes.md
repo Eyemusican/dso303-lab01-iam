@@ -54,6 +54,8 @@ In this lab, the same policy reaches the enrolment task through `taskRoleArn`. E
 
 In both cases, we do not need to store permanent access keys because AWS provides temporary credentials. The policy gives access to the S3 bucket `arn:aws:s3:::usms-student-data`. If the bucket exists, both the EC2 instance and ECS task can access it according to the policy permissions.
 
+At runtime, the instance gets its credentials from the instance metadata service, and the Fargate task gets its own from the ECS container credentials endpoint inside the task (the AWS_CONTAINER_CREDENTIALS_RELATIVE_URI that the SDK reads automatically). Both are temporary and rotated automatically by AWS, so there is nothing permanent to leak. Today any S3 call to usms-student-data fails with a 404 because the bucket does not exist. The moment the bucket is created at that ARN, those same calls start succeeding for both usms-web-01 and the enrolment task at the same time, with no change to the policy, the roles, the instance or the task definition.
+
 ### 3. Execution role vs task role
 If the task cannot start because it cannot pull its image or create its log stream, it is related to the execution role.
 
@@ -67,6 +69,8 @@ Using `usms-app-sg` as the source is better than using a CIDR such as `10.0.1.0/
 A CIDR could allow anything inside that subnet. If the web instance moved to another subnet, the rule might no longer work.
 
 Using the security group keeps the rule based on the actual purpose: only the web tier can call the enrolment API. This is also useful when the number of tasks changes because new tasks can have different private IP addresses.
+
+So there are two separate reasons. Even if the task count never changed, the group reference is still correct because it says who may call the service, the web tier, not where that caller happens to sit. Once Lab 06 lets the task count change by itself, it becomes close to mandatory, because every new task and every new web server automatically carries its security group and gets the right access, with no list of IP addresses to keep updated.
 
 ### 5. What Fargate removes and what it does not
 Fargate removes the need to manage the servers where the containers run. With EC2, I would need to choose an AMI and instance type, manage servers, think about storage and patching, and scale the EC2 instances when needed.
