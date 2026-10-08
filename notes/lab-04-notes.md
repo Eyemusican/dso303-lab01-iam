@@ -41,3 +41,43 @@ Revision 2 instead of 1 happened because the register command ran twice. Revisio
 The first run gave PASS=37 FAIL=1. The failing check was "no secret is tracked by git", which ran git ls-files | grep -q '^outputs/'. git ls-files outputs/ only listed outputs/.gitkeep, so no secret was tracked. The check fails on any file in outputs/, including .gitkeep, which has to be there to keep the folder in Git, and the lab's own Step 13 says git ls-files outputs/ should list exactly outputs/.gitkeep. So on a correct repository this check can never pass. I changed it to ignore .gitkeep and fail on anything else: git ls-files outputs/ | grep -vx 'outputs/.gitkeep' | grep -q . After that the script gave PASS=38 FAIL=0.
 
 I also added export MSYS_NO_PATHCONV=1 at the top of the script, because Git Bash on Windows turns /usms/ecs/enrolment into a Windows path, which would make the log group checks fail for no real reason.
+
+## Review Questions
+
+### 1. "I put auto scaling on the task definition"
+This is not correct because the task definition is just a recipe for how the task should run. Auto scaling is attached to the ECS service instead. It changes the service's `desiredCount`, which is the same number I changed manually from 2 to 3 and back in Step 11. The ECS service scheduler then starts or stops tasks until the `runningCount` matches the `desiredCount`. The task definition itself does not perform the scaling. In Lab 06 the service will be registered with Application Auto Scaling as a scalable target, which is a separate service from ECS. Because of that, ECS itself knows nothing about the scaling, so `describe-services` shows no scaling settings, and if someone changes `desiredCount` by hand, the next scaling action can overwrite it.
+
+### 2. One policy, two delivery mechanisms
+In Lab 3, the policy reaches `usms-web-01` through an instance profile. The profile contains `usms-ec2-app-role`, and AWS gives the instance temporary credentials through the instance metadata service.
+
+In this lab, the same policy reaches the enrolment task through `taskRoleArn`. ECS gives the task temporary credentials for `usms-ecs-task-role`, which the application can use automatically.
+
+In both cases, we do not need to store permanent access keys because AWS provides temporary credentials. The policy gives access to the S3 bucket `arn:aws:s3:::usms-student-data`. If the bucket exists, both the EC2 instance and ECS task can access it according to the policy permissions.
+
+### 3. Execution role vs task role
+If the task cannot start because it cannot pull its image or create its log stream, it is related to the execution role.
+
+If the task is already running but the application gets `AccessDenied` when accessing S3, it is related to the task role.
+
+Both roles trust `ecs-tasks.amazonaws.com`, but they have different permissions. The execution role is used by ECS to start the task, while the task role gives permissions to the application running inside the task. The trust policy is the same because it only says who is allowed to assume the role, and in both cases that is the ECS tasks service. What each role is allowed to do comes from its own permissions policy.
+
+### 4. Sourcing the rule from usms-app-sg
+Using `usms-app-sg` as the source is better than using a CIDR such as `10.0.1.0/24` because it allows only the web tier to access the enrolment API.
+
+A CIDR could allow anything inside that subnet. If the web instance moved to another subnet, the rule might no longer work.
+
+Using the security group keeps the rule based on the actual purpose: only the web tier can call the enrolment API. This is also useful when the number of tasks changes because new tasks can have different private IP addresses.
+
+### 5. What Fargate removes and what it does not
+Fargate removes the need to manage the servers where the containers run. With EC2, I would need to choose an AMI and instance type, manage servers, think about storage and patching, and scale the EC2 instances when needed.
+
+With Fargate, I only define the task requirements, such as `0.25 vCPU` and `512` or `1024 MiB` memory, and AWS manages the underlying servers.
+
+However, Fargate does not remove networking. The task still runs in `awsvpc` mode, gets its own network interface, uses the private subnet and `usms-enrolment-sg`, and follows the private route table. It has no public IP and needs the NAT gateway to reach the internet and pull its image.
+
+### 6. A command that cannot tell memory mode from hybrid mode
+`aws ecs describe-clusters --clusters usms-ecs-cluster` cannot prove memory mode or hybrid mode when it is run while Floci is running. Both modes can show the cluster as `ACTIVE`.
+
+To test persistence, I need to stop Floci and start it again using `floci-down.sh` and `floci-up.sh`. In hybrid mode, the cluster is still there because the data was saved to disk. In memory mode, the cluster would disappear because the data only existed in memory.
+
+I saw the hybrid behaviour myself when Docker Desktop froze and Floci restarted in Step 10. The cluster, service, task definition revisions and roles were still there.
