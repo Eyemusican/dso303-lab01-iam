@@ -76,7 +76,7 @@ usms-enrolment-svc has no scalable target, no scaling policy and no scheduled ac
 Note: my Step 3 probe showed this Floci build does not support scheduled actions, so Lab 06 will need its fallback for the scheduled floor.
 
 ### Monthly cost comparison
-Prices (Linux x86, us-east-1, on demand): $0.04048 per vCPU hour and $0.004445 per GB hour, from the AWS Fargate pricing figures quoted by usage.ai's EC2 vs Fargate guide. A month is 730 hours.
+Prices (Linux x86, us-east-1, on demand): $0.04048 per vCPU hour and $0.004445 per GB hour, from the AWS Fargate pricing figures quoted by usage.ai's EC2 vs Fargate guide (official page: https://aws.amazon.com/fargate/pricing/). A month is 730 hours.
 
 One task (0.25 vCPU, 1 GB) per hour: 0.25 x 0.04048 + 1 x 0.004445 = $0.014565. Per month: 0.014565 x 730 = $10.63.
 

@@ -96,7 +96,7 @@ With an Auto Scaling group, the second instance only needs to run during the bus
 ### What I would change
 I would scale out, not up. Scaling up within t3 small and medium gives no extra vCPUs, so it does not fix the midday CPU. Scaling out spreads the readers across instances, puts them in two Availability Zones so one zone failing does not take the portal down, and with Auto Scaling it handles the overnight idle time by removing the extra instance at night. It costs more than option 0 on paper, but option 0 is already overloaded.
 
-Prices are for Linux on demand in us-east-1, from economize.cloud (EC2 instance prices), the AWS T3 instance page (unlimited mode and $0.05 per vCPU hour), the AWS Networking blog on public IPv4 ($0.005 per IP per hour) and serverscheduler.com (ALB $0.0225 per hour and $0.008 per LCU hour).
+Prices are for Linux on demand in us-east-1, from economize.cloud (EC2 instance prices), the AWS T3 instance page (unlimited mode and $0.05 per vCPU hour), the AWS Networking blog on public IPv4 ($0.005 per IP per hour) and serverscheduler.com (ALB $0.0225 per hour and $0.008 per LCU hour). Official EC2 on demand pricing page: https://aws.amazon.com/ec2/pricing/on-demand/
 
 ### What I checked before deleting
 - Orphaned volumes: describe-volumes with status=available returned nothing, so there were none to delete.
