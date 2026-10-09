@@ -86,3 +86,9 @@ On a normal run it shows account 000000000000, the green [ok] line and exit code
 To prove it fails loudly I ran it once with a fake access key ID, 111111111111, set only for that one command. Floci reports a 12 digit access key ID as the account number, so the script saw account 111111111111, printed DANGER and the warning that I may be pointed at real AWS, and exited with code 1.
 
 ![whoami.sh on a wrong account](../screenshots/lab01-whoami-wrong-account.png)
+
+## Tagging the three users
+
+When I checked my work against the checklist, I found I had created usms-admin-01, usms-dev-01 and usms-audit-01 in Step 19 without the --tags option, so they had no tags. I added the same tags the step uses, Project=USMS and Role=Administrator, Developer or Auditor, with aws iam tag-user, and confirmed them with aws iam list-user-tags.
+
+![The 3 users tagged with Project and Role](../screenshots/lab01-users-tagged.png)

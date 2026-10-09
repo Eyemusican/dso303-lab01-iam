@@ -93,6 +93,10 @@ Image Source: N/A
 usms-admin-01, usms-dev-01, usms-audit-01 created with correct ARNs.
 Image Source: N/A
 
+I created the three users without the --tags option at first. When I checked my work against the checklist, I added the same tags Step 19 uses, Project=USMS and a Role for each user, with aws iam tag-user, and confirmed them with list-user-tags.
+
+![The 3 users tagged with Project and Role](../../screenshots/lab01-users-tagged.png)
+
 **Screenshot 6: Developer policy attached**
 ![USMSDeveloperBase policy attached to 2 groups](../../screenshots/step22-verification.png)
 
