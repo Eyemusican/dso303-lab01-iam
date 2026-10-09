@@ -1,12 +1,10 @@
+# Lab 01 Working Notes
 
-#### memory vs hybrid
+## memory vs hybrid
 
 The directory being mounted just gives Floci a place it could write to, but in memory mode, Floci keeps everything in RAM only and never actually writes meaningful data to disk. It also deletes its own volumes when it shuts down, since memory mode assumes nothing needs to survive a restart anyway.
 
-
-
-
-#### Policy simulator prediction
+## Policy simulator prediction
 
 I predicted ec2:DescribeVpcs would be allowed (matches ReadOnlyAccess), and ec2:CreateVpc would be implicitDeny (write action, not covered by ReadOnlyAccess).
 

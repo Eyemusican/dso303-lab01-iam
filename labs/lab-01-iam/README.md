@@ -1,4 +1,4 @@
-# Lab 01 IAM, completed
+# Lab 1: Identity and Access Management (IAM)
 
 Tenzin Namgay (02230307), DSO303
 
@@ -11,7 +11,15 @@ Tenzin Namgay (02230307), DSO303
 - **IAM policy and trust documents:** in the `policies` folder at the repo root, [open the policies folder](../../policies)
 - **Scripts and config:** `../../docker-compose.yml`, `../../configs/lab-01.env`, `../../scripts/utilities/verify-lab-01.sh`, `../../scripts/utilities/whoami.sh`, `../../scripts/utilities/floci-storage-check.sh`, `../../scripts/cleanup/lab-01-cleanup.sh` (end of course only, not run)
 
+## Result
+
+- [x] whoami.sh output showing account 000000000000: [step13-whoami-script.png](../../screenshots/step13-whoami-script.png)
+- [x] floci-storage-check.sh output, all [ok]: [lab01-storage-check-all-ok.png](../../screenshots/lab01-storage-check-all-ok.png)
+- [x] Step 14 persistence proof (user survived a restart): [step14-persistence-proof.png](../../screenshots/step14-persistence-proof.png)
+- [x] verify-lab-01.sh with FAIL=0
+
 ## What exists after this lab
+
 - Environment: Floci via docker-compose.yml, FLOCI_STORAGE_MODE=hybrid,
   bind-mounted to ~/floci-data, persistence proven in Step 14
 - Groups: usms-admins, usms-developers, usms-auditors
@@ -23,16 +31,11 @@ Tenzin Namgay (02230307), DSO303
 - Instance profile: usms-ec2-app-profile
 
 ## Reproduce
+
     source ~/aws-floci-course/configs/course.env
     ./scripts/setup/floci-up.sh
     source ~/aws-floci-course/configs/lab-01.env
     ./scripts/utilities/verify-lab-01.sh
-
-## Evidence
-- [x] whoami.sh output showing account 000000000000: [step13-whoami-script.png](../../screenshots/step13-whoami-script.png)
-- [x] floci-storage-check.sh output, all [ok]: [lab01-storage-check-all-ok.png](../../screenshots/lab01-storage-check-all-ok.png)
-- [x] Step 14 persistence proof (user survived a restart): [step14-persistence-proof.png](../../screenshots/step14-persistence-proof.png)
-- [x] verify-lab-01.sh with FAIL=0
 
 ## Problems I hit and how I fixed them
 
