@@ -135,3 +135,13 @@ Audit: usms-alb-sg, the load balancer and the target group are all tagged Lab=05
 
 Written by lookup, 15 exports, all populated except USMS_SVC_GRACE_PERIOD=None, which is the Step 10 Floci limitation (real AWS would record 60).
 Doc bug: the listener line's filter Listeners[?Port==\`80\`] failed on my shell with "Bad jmespath expression: Unknown token \" because inside $(...) the backslash reached the AWS CLI along with the backtick, which left USMS_ALB_LISTENER_ARN empty. I changed only that filter to Listeners[?to_string(Port)=='80'], which means the same thing and needs no backticks. After that the listener ARN was filled in.
+
+## Section 9: verify-lab-05.sh
+
+First run: PASS=46 FAIL=3 out of 49 checks.
+Doc bug fixed: "no secret is tracked by git" used ! git ls-files | grep -q '^outputs/', which always fails because outputs/.gitkeep is meant to be tracked (Step 19 confirmed it is the only tracked file there). I changed it to ! git ls-files outputs/ | grep -vx 'outputs/.gitkeep' | grep -q . which is the same fix I made to verify-lab-04.sh in Lab 04.
+Final run: PASS=47 FAIL=2. Both remaining failures are benign and have one cause:
+1. "healthCheckGracePeriodSeconds is set (not None, not 0)": my Floci build accepts --health-check-grace-period-seconds on create-service and update-service but does not store it (Step 10). This is in the doc's own benign table. Real AWS would store 60.
+2. "configs/lab-05.env has no empty values": the file records USMS_SVC_GRACE_PERIOD=None for the same reason. Every other value in the file is populated.
+Cleanup script: scripts/cleanup/lab-05-cleanup.sh built and checked with bash -n (syntax OK). It has NOT been run.
+Doc typo: its comments say "Run AFTER lab-04-cleanup.sh and BEFORE lab-04-cleanup.sh". From the doc's own order list the first one should be the Lab 06 cleanup (scaling configuration). I copied it as written because it is only a comment.
