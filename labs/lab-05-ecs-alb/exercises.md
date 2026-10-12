@@ -83,3 +83,32 @@ An undocumented count is worse than no count because when the number changes nob
 ### When to update a verification script, and when it hides a regression
 
 Updating a verification script is right when the architecture changed on purpose and the new check still asserts the same property, ideally in the same commit as the change. It becomes a way to hide a regression when you change the expected value just to make the script green without being able to point to the deliberate change that made the old value wrong.
+
+## Exercise 3: a load balancer report tool
+
+I wrote scripts/utilities/usms-lb-report.sh. It takes no arguments, finds every Application Load Balancer whose name starts with usms-, and prints its full decision table: the load balancer, each listener, and each rule in evaluation order with where it sends the request and how many targets are healthy. It also writes the same data to outputs/lab-05-lb-report.json (git ignored).
+
+### Design decisions
+
+- It resolves the repo from ${BASH_SOURCE[0]}, the same way Section 9's script does, so it works from any directory.
+- Nothing is hard coded except the usms- prefix. The load balancers come from describe-load-balancers with a starts_with filter, then one describe-listeners call per load balancer, one describe-rules call per listener, and one describe-target-health call per target group (cached so a target group used twice is only asked once).
+- Bash does the setup, then python3 does the four levels of nesting and the formatting, because nested bash loops over JSON at four levels are hard to get right. Python calls the AWS CLI with --output json at each level.
+- Rule order: Priority is a string and the default action's priority is the word "default", so a plain string sort would put "10" before "5" and could put "default" in the wrong place. My sort key turns numeric priorities into integers and forces default last, which is the order the listener evaluates them. There is a comment in the script saying this.
+- A non forward action prints its own summary (fixed-response 200, or redirect with its target) instead of an empty target group column.
+- It handles a load balancer with no listeners (prints "no listeners"), a listener with no extra rules (only the default line), and a target group with no targets (0 targets, 0 healthy).
+- Floci keeps path values only in PathPatternConfig.Values (Step 15), so the script reads Values first and falls back to the <Field>Config.Values block.
+- set -uo pipefail without -e: it is a read only report, so one failed describe call should be reported on that row and the rest should still print, rather than the whole script stopping half way with no output.
+
+### Results
+
+Run from my home folder, after Exercise 1 added usms-results-tg:
+
+![usms-lb-report.sh run from the home folder](../../screenshots/lab05-ex3-report-from-home.png)
+
+The output was identical from ~ and from labs/lab-05-ecs-alb/ (diff printed nothing), and the JSON report is valid:
+
+![Identical output from both folders and a valid JSON report](../../screenshots/lab05-ex3-identical-and-json.png)
+
+I temporarily deleted the /alb-health rule, ran the report (only priority 20 and default were shown, no crash and no empty row), then recreated the rule straight away with Step 15's own command and templates. verify-lab-05.sh still reported PASS=47 FAIL=2 with both rule checks ok.
+
+![Report with the /alb-health rule removed and after it was restored](../../screenshots/lab05-ex3-alb-health-removed-and-restored.png)
