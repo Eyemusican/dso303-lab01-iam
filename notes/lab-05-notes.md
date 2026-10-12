@@ -145,3 +145,63 @@ Final run: PASS=47 FAIL=2. Both remaining failures are benign and have one cause
 2. "configs/lab-05.env has no empty values": the file records USMS_SVC_GRACE_PERIOD=None for the same reason. Every other value in the file is populated.
 Cleanup script: scripts/cleanup/lab-05-cleanup.sh built and checked with bash -n (syntax OK). It has NOT been run.
 Doc typo: its comments say "Run AFTER lab-04-cleanup.sh and BEFORE lab-04-cleanup.sh". From the doc's own order list the first one should be the Lab 06 cleanup (scaling configuration). I copied it as written because it is only a comment.
+
+## Section 12.1: what I actually observed on my build
+
+OBSERVED (I saw it in command output):
+- usms-alb-sg admitting 0.0.0.0/0, and usms-enrolment-sg admitting only usms-alb-sg after the cutover (Steps 4, 13, 17)
+- a load balancer across two subnets in us-east-1a and us-east-1b (Step 5)
+- a target group with target-type ip (Step 6)
+- the target group's LoadBalancerArns count going from 0 to 1 when the listener was created (Steps 6 and 8)
+- the ECS service filling the target group itself, two targets, without me registering anything, and scaling to 3 and back to 2 (Step 11)
+- targets reported healthy, and a new target reported initial (Step 11)
+- a listener rule at priority 10 ordered ahead of the default action (Step 15, and the report tool in Exercise 3)
+- the security cutover, and verify-lab-04.sh changing exactly one check from ok to FAIL (Step 13)
+- all of it surviving a Floci restart with every ARN re-derived from the API (Step 16)
+
+NOT OBSERVED, even though the doc lists it as observable:
+- "a load balancer with no listener, answering nothing": I never ran describe-listeners or curl before Step 8, so I reasoned this rather than saw it
+- "refusing to be anything else afterwards": I did not try to change the target type, I only read that there is no command for it
+- "target addresses inside Lab 02's private subnet CIDRs": my targets were 172.18.0.3 and 172.18.0.4, Docker network addresses (Step 11)
+- "a forced deployment producing new addresses": Floci kept the same two tasks and addresses (Step 14)
+
+CONCEPTUAL (reasoned, not seen):
+- a request going from a client to a task and back: no 200, DNS did not resolve and curl got 000 (Step 12)
+- a health check probe being sent: the healthy state suggests Floci probed the containers, but I never saw a probe itself
+- a target going from initial to healthy: I saw a target at initial and others at healthy, but never watched one change
+- a target draining: the removed target disappeared straight away (Steps 11 and 14)
+- least_outstanding_requests choosing a target: stored, no traffic to choose for
+- a rule's path condition evaluated against a real URL: no data path (Step 15 curl got 000)
+- the 2 to 4 minute provisioning time: mine went active on the first poll
+- HTTPS, certificates and the TLS listener: planned in Exercise 4 only
+- the cost: calculated from the AWS pricing pages in Exercise 4, never billed
+
+## Review questions
+
+**1. The group rule in Lab 04 and the load balancer in Lab 05**
+
+Both exist because the tasks have no stable address. A task that stops takes its IP with it and a new task gets a new one, so anything written against an address is wrong as soon as the next deployment happens. The security group rule solved this for the firewall by naming a group instead of an address, and the load balancer solves it for clients by giving them one stable DNS name instead of a list of task IPs. The general problem is indirection: put something stable in front of something that changes, and give the job of keeping it up to date to whatever already knows about the changes (here the ECS service registers and deregisters its own targets). A third example from elsewhere in computing is DNS itself, where people use a hostname and the record is updated when the server's IP changes. Virtual memory is another, where programs use virtual addresses and the operating system maps them to physical memory that can move.
+
+**2. "The health check says unhealthy, so the app is broken"**
+
+That is not a safe conclusion, because the target group health check is sent from outside the task across the network, so it fails the same way whether the application is broken or the network path to it is broken. It cannot tell "the process is dead" apart from "the process is fine but the security group, subnet or health check path stops the probe reaching it". The field that separates them is the ECS task's healthStatus from the container health check, which runs inside the task. My diagnostic order would be: first look at healthStatus for the same task; if it is UNHEALTHY, read the container logs because the app is broken; if it is HEALTHY, check that usms-enrolment-sg admits usms-alb-sg on the target port, then the health check path and matcher, then the subnets and NACLs.
+
+**3. Configuration versus identity**
+
+There is no update-target-group-target-type because AWS treats the target type as part of what the target group is, not a setting on it. Changing it would make it a different object, so the only way is to create a new one. It is the same idea as Lab 04's task definition revisions: a revision is never edited, you register a new one. Two other fields in this lab that behave the same way are the load balancer's scheme and its type (application or internet facing cannot be changed after creation), and the target group's VPC. One that looks like it should be fixed but is not is the load balancer's security groups, which can be changed later with set-security-groups. The health check path and matcher can also be changed in place, as I did in the Step 6 Your turn.
+
+**4. A request in flight when its task is stopped**
+
+When ECS decides to stop the task, it first deregisters it from usms-enrolment-tg, and the load balancer marks it draining: it sends no new requests to it but lets requests already in flight finish. That lasts up to deregistration_delay.timeout_seconds, which I set on the target group to 30 seconds. After draining, ECS sends SIGTERM to the container and waits the stopTimeout from the task definition before sending SIGKILL. During a deployment, minimumHealthyPercent on the service decides whether a new task has to be healthy before the old one is taken out. A normal request that takes milliseconds therefore succeeds, because it finishes well inside the 30 second drain. If the delay were left at the default of 300 seconds the request would still succeed, but every task would wait up to five minutes before stopping, so a deployment of two tasks could take around ten minutes for no benefit.
+
+**5. Fix the Lab 04 script or leave it failing**
+
+The case for updating it straight away is that a script that fails for a known reason trains people to ignore it, and then a real failure is missed among the expected ones. The case for leaving it failing and documenting it is that Lab 04's script is a record of what Lab 04 built, and changing it quietly can hide a regression. On a system with four other engineers I would update the check in the same commit as the architecture change and say why in the commit message, because the others cannot know the failure is expected unless they read my notes. With only me on the system, leaving it failing for a short time with a note is more acceptable, because the person reading the failure is the person who knows why, which is what I did until Exercise 2.
+
+**6. Internet facing load balancer, private tasks**
+
+Both are true because the load balancer and the tasks are in different subnets. The load balancer's nodes are in usms-public-subnet-a and usms-public-subnet-b, whose route table usms-public-rt sends 0.0.0.0/0 to usms-igw, so the nodes get public addresses and can be reached from the internet. The tasks are in usms-private-subnet-a and usms-private-subnet-b, whose route table usms-private-rt only goes out through usms-nat (outbound only), and the tasks have no public IP, so nothing outside the VPC can start a connection to them. The load balancer reaches them because it is inside the same usms-vpc and usms-enrolment-sg admits usms-alb-sg. An attacker who controlled the load balancer's configuration could change listeners and rules, send traffic to other target groups in the VPC, or read and redirect the requests passing through it, but could still only reach the tasks on tcp/80, because usms-enrolment-sg admits nothing else, and could not reach usms-db-01. If the tasks had public addresses, anyone could try to connect to them directly and skip the load balancer, its listener and its rules, and the only thing protecting them would be their own security group.
+
+**7. Requests per target versus CPU**
+
+Requests per target is a better signal for a web API because the load on the service is the number of requests coming in, so it scales on the demand itself and can add tasks before CPU has climbed. CPU is the better choice when the work is CPU heavy and the cost of each request varies a lot, for example generating large reports, or when most of the work does not come through the load balancer at all. ALBRequestCountPerTarget would scale the enrolment service badly if a small number of requests were very expensive while most were cheap, so the request count would stay low while the tasks were overloaded, or if clients kept long lived connections that send few requests but use a lot of resources.
