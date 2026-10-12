@@ -128,7 +128,7 @@ I deleted the /alb-health rule for a short time and ran the report. It showed on
 
 ### What changed
 
-Before, usms-web-01 called a task's private address directly. Now every request enters through usms-enrolment-alb in the two public subnets and is forwarded to the tasks in the private subnets. The security groups changed from usms-enrolment-sg admitting tcp/80 from usms-app-sg to admitting tcp/80 only from usms-alb-sg, and usms-alb-sg is the one group that admits 0.0.0.0/0.
+Before, usms-web-01 called a task's private address directly, but now every request enters through usms-enrolment-alb in the two public subnets and is forwarded to the tasks in the private subnets. The security groups changed from usms-enrolment-sg admitting tcp/80 from usms-app-sg to admitting tcp/80 only from usms-alb-sg, and usms-alb-sg is the one group that admits 0.0.0.0/0.
 
 ### Internal or internet facing
 
