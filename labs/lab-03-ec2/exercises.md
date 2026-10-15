@@ -25,7 +25,7 @@ I wrote labs/lab-03-ec2/user-data-db.sh for the data tier. It does three things:
 
 The first lines check for that marker. If it already exists, the script exits straight away without changing anything, so running it twice is safe. bash -n passed, and the script is 877 bytes, well under 16 KB.
 
-I used a quoted heredoc ('EOF'). This way $MARKER, $TOKEN, $INSTANCE_ID and $(date) were written into the file as text and only run later on the instance, not on my laptop.
+I used a quoted heredoc ('EOF') so that $MARKER, $TOKEN, $INSTANCE_ID and $(date) were written into the file as text and only run later on the instance, not on my laptop.
 
 I launched usms-db-02 in usms-private-subnet-b with usms-db-sg and this user data, and no instance profile.
 
