@@ -12,6 +12,8 @@ What is missing is a route. A subnet is only public because its route table has 
 
 I proved this myself in Step 13. My public and private subnets had identical route tables until I added the default route to the internet gateway. The only thing that ever separated them was that one route.
 
+![Only the public subnet routes to the internet gateway](../screenshots/step13-subnets-proven-different.png)
+
 **2. Security groups are stateful and network ACLs are stateless. Describe a specific USMS request path, name the ports and the direction of each leg, where that difference changes how many rules you must write. Then say which of the two you would reach for first when a new requirement arrives, and why.**
 
 Take a student's browser calling the web server on port 80.
@@ -45,6 +47,8 @@ Without the endpoint, the same request would have to go out through the NAT gate
 
 That second path leaves the AWS network completely. In money, it means paying NAT data processing charges for traffic that never needed to go near the internet. In exposure, it means student data crosses a public path instead of staying inside AWS the whole time.
 
+![S3 gateway endpoint on the private route table](../screenshots/step21-s3-endpoint-created.png)
+
 **6. Step 23 restarted Floci and looked the VPC up by tag rather than reusing the VPC_ID shell variable. Explain what specifically would not have been proven had the variable been reused. Relate your answer to the failure described in Lab 1 Step 14.**
 
 If I had just reused $VPC_ID after the restart, it would only prove that my terminal still remembered a string. It would not prove that Floci itself still had the VPC.
@@ -53,6 +57,8 @@ Looking it up again by tag forces a real API call to Floci's storage. So I only 
 
 This is the same lesson as Lab 1 Step 14. There, checking the account root ARN after a restart proved nothing, because that value never changes anyway. Real persistence has to be proven by creating something, restarting, and looking it up again from scratch.
 
+![VPC found again after restart](../screenshots/step23-persistence-proven.png)
+
 **7. Floci does not enforce security groups. Given that, explain how you can still be confident that the rules you wrote in Steps 14 and 15 are correct and describe one specific mistake that this lab's verification would catch and one that it would not.**
 
 I can still be confident because I read the actual rule documents back and checked them against what I intended: port numbers, sources, and descriptions. I did not trust that a command succeeding meant the logic was right.
@@ -60,3 +66,5 @@ I can still be confident because I read the actual rule documents back and check
 **A mistake the verification would catch:** an internet gateway that is not attached. describe-internet-gateways would show an empty Attachments list, even though the gateway itself exists.
 
 **A mistake it would not catch:** whether the usms-db-sg rule really blocks traffic from everywhere except usms-app-sg. Floci does not check real traffic against security groups at all. So an overly open rule and a correctly limited one would look the same if you only tested by trying to connect to something.
+
+![Lab 2 verify result](../screenshots/lab02-exercise5-verify-final.png)
