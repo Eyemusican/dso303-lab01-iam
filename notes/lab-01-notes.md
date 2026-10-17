@@ -18,13 +18,19 @@ I chose a role for the backup operator, not a user or a group, because this is a
 
 What is almost certainly missing is the trust side. The permissions policy only says what the role can do once someone is using it, while the trust policy says who is allowed to become the role in the first place. Every role has a trust policy, but if it does not name the caller as a principal, nobody can assume the role, so the perfect permissions are never used. There is also a second half on the caller's side: the user needs its own permission to call sts:AssumeRole on that role ARN. I set up both halves in Step 30. trust-account-developers.json names usms-dev-01 as the principal, and I attached USMSAssumeAppRoles to usms-developers so the caller was allowed to ask. IAM keeps the two documents separate because they answer different questions. Who may use usms-ec2-app-role (ec2.amazonaws.com) has nothing to do with what it may do (USMSStudentDataReadWrite), so I can change one without touching the other, and different people can own them.
 
+![Developer role assumed](../screenshots/step30-assumed-identity.png)
+
 ### 2. Explicit vs implicit deny
 
 Both calls fail with AccessDenied, but for different reasons. iam:CreateUser is an explicit deny: USMSDeveloperBase reaches usms-dev-01 through usms-developers, and its DenyDangerousIdentityChanges statement names iam:CreateUser with Effect Deny. dynamodb:PutItem is an implicit deny: no policy on usms-dev-01 or its group mentions DynamoDB at all, so the request falls through to the default deny. To tell them apart, I would run `aws iam simulate-principal-policy` for both actions. The first comes back as explicitDeny with the matching statement listed, and the second as implicitDeny with no matching statement. On real AWS the error message also says it, either "with an explicit deny in an identity based policy" or "because no identity based policy allows" the action. The fix is different because an explicit deny always wins. For DynamoDB I just add an Allow for the exact action and table ARN. For CreateUser, no Allow anywhere can override the Deny, so the only fix is to change or remove the Deny statement. That guardrail is there on purpose, so the right answer is probably to leave it and have an admin create the user.
 
+![Simulator showing explicitDeny and implicitDeny](../screenshots/step32-simulator-result.png)
+
 ### 3. Roles over keys
 
 First, the credentials are temporary. When usms-web-01 uses usms-ec2-app-role through usms-ec2-app-profile, it gets ASIA credentials with a session token, and AWS expires and rotates them by itself. The key for usms-dev-01 is an AKIA key that stays valid until someone deletes it, so a leaked copy keeps working. Second, there is no secret to store. A key in a configuration file can end up in Git, a backup, a container image or a screenshot. I saw how hard a key file is to protect in Step 31: I sent the key straight into outputs/ and relied on .gitignore, because chmod 600 did nothing on NTFS. I even captured a SecretAccessKey and SessionToken in my first Exercise 3 screenshot and had to take it again. The only reason that was not serious is that those credentials were temporary and had already expired. With a role there is no key file at all.
+
+![Access key file ignored by Git](../screenshots/step31-git-protection-verified.png)
 
 ### 4. The S3 ARN trap
 
@@ -37,6 +43,9 @@ Floci stores my policies and checks that the JSON is valid, but by default it do
 ### 6. The persistence trap
 
 There are three separate reasons. First, a directory is not a mode. --persist only mounts a host directory at /app/data and does not change FLOCI_STORAGE_MODE, which defaults to memory. In memory mode Floci keeps everything in RAM, writes almost nothing to the directory and deletes its own volumes on teardown, so the directory existing proves nothing. Second, sidecar services like RDS, Lambda and ECS do not use --persist at all. They need FLOCI_STORAGE_HOST_PERSISTENT_PATH set to an absolute path, because ~ is never expanded. Third, CLI flags are not remembered. A Docker Desktop restart, a floci restart or a plain floci start brings the container back on defaults, which is memory mode with no mount, so one overnight restart wipes everything without a warning. The single test is the one I did in Step 14: create a marker user, restart the container and look the user up again with `aws iam get-user`. If it comes back, the data persisted. If it says NoSuchEntity, it did not. Checking get-caller-identity after a restart does not count, because the root ARN is the same even in memory mode. My persistence check user came back after a full restart, and ~/floci-data had real files in it.
+
+![Storage check in hybrid mode](../screenshots/lab01-storage-check-all-ok.png)
+![Marker user found after restart](../screenshots/step14-persistence-proof.png)
 
 ### 7. Configuration as evidence
 
@@ -73,6 +82,8 @@ At the end of Lab 1 I saved a snapshot of my Floci data with the tar fallback, a
 On sts:ExternalId, I would add one for a real external partner. Without it, anything that finds the role ARN and holds usms-audit-01's credentials could assume the role. An ExternalId is a shared secret that the partner must also supply. It protects against the confused deputy problem, where a third party is tricked into assuming a role on someone else's behalf.
 
 In this exercise the trusted principal is my own usms-audit-01 user, so I left it out. But for the real partner university, I would add a Condition on sts:ExternalId to the trust policy.
+
+![Partner role trusts usms-audit-01](../screenshots/exercise3-role-verify.png)
 
 ## Checking an exit code with $?
 

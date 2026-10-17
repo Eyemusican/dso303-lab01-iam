@@ -10,4 +10,6 @@ I predicted ec2:DescribeVpcs would be allowed (matches ReadOnlyAccess), and ec2:
 
 Actual: both came back allowed, even the write action. So Floci's simulator isn't really checking the attached policy properly, it just returns allowed for things it doesn't specifically flag as denied. Ties back to the Floci Limitation note in section 16.6, since Floci doesn't enforce IAM policies by default.
 
+![Simulator allows both actions](../../screenshots/step32-audit-prediction.png)
+
 
