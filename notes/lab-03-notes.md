@@ -6,6 +6,9 @@ The policy USMSStudentDataReadWrite gives usms-web-01 access to arn:aws:s3:::usm
 
 An IAM policy only talks about ARNs, not real objects. So it is valid to allow access to something that has not been created. Right now the permission does nothing. Once the bucket is created in a later lab, the policy starts working straight away. usms-web-01 can then read and write student data without any access key stored on the machine.
 
+![Instance to profile to role to policy](../screenshots/lab03-step11-permission-chain-1.png)
+![Policy document for usms-student-data](../screenshots/lab03-step11-permission-chain-2.png)
+
 ## Review Questions
 
 ### 1. What if one of the five inputs to run-instances had been wrong?
@@ -16,6 +19,8 @@ An IAM policy only talks about ARNs, not real objects. So it is valid to allow a
 - **Key pair (Lab 3):** a missing key pair fails straight away with InvalidKeyPair.NotFound. Losing the private key file is silent until the day someone tries to SSH in, and it cannot be recovered.
 - **User data script (Lab 3):** always silent. run-instances accepts any text, so a syntax error or a variable expanded too early only fails at boot. The only evidence is a log file on a machine you might not be able to log in to. That is why I ran bash -n before launching and proved in Step 12 that the stored copy was byte identical.
 
+![Stored user data is byte identical](../screenshots/lab03-step12-userdata-proven.png)
+
 ### 2. Why is a policy for a bucket that does not exist valid?
 
 An IAM policy is a statement about ARNs, not a link to real objects. So USMSStudentDataReadWrite can name arn:aws:s3:::usms-student-data before that bucket exists. AWS only checks it when a request is made.
@@ -23,6 +28,8 @@ An IAM policy is a statement about ARNs, not a link to real objects. So USMSStud
 Right now it does nothing for usms-web-01, because any S3 call to that name just fails with Not Found. My head-bucket check in Exercise 5 showed this (exit code 254, 404).
 
 As soon as a later lab runs create-bucket, the same policy starts working, with no change to the instance, the profile or the role. usms-web-01 can then list the bucket and read, write and delete objects inside it, while DeleteBucket stays denied. It does all of this with temporary credentials from the instance profile and no access key on the disk.
+
+![head-bucket returns 404](../screenshots/lab03-ex5-readiness.png)
 
 ### 3. Why does "restart to redeploy" with user data not work?
 
@@ -33,6 +40,8 @@ Two approaches that do work:
 1. Bake the app into an AMI, like the golden AMI from Step 20. Then deploy by launching new instances from the new image and removing the old ones. With a launch template and an Auto Scaling group, this can be done one instance at a time.
 2. Use a deployment tool that runs on demand, like AWS Systems Manager Run Command or CodeDeploy. It pushes the new version to running instances whenever you deploy, not only at first boot.
 
+![Golden AMI available](../screenshots/lab03-step20-golden-ami.png)
+
 ### 4. Auto assigned public IP vs Elastic IP
 
 - **Who owns it:** an auto assigned address is lent to the instance from AWS's pool. An Elastic IP belongs to my account until I release it.
@@ -42,6 +51,10 @@ Two approaches that do work:
 
 A failover that is only possible because of this difference: if usms-web-01 fails, I can move the Elastic IP to a standby instance with associate-address --allow-reassociation. The DNS record keeps pointing at the same address, so users are moved without any DNS change. I actually did a reassociation in the verify section. I got a new association ID while the address stayed the same.
 
+![Elastic IP associated](../screenshots/lab03-step13-eip.png)
+![Elastic IP kept after stop and start](../screenshots/lab03-step18-stop-start.png)
+![Elastic IP reassociated](../screenshots/lab03-verify-eip-retry.png)
+
 ### 5. What the EBS Availability Zone rule tells me
 
 An EBS volume lives in the storage of one Availability Zone, so it can only be attached to an instance in that same zone. When I tried to attach a volume from us-east-1b to usms-web-01 in us-east-1a, it was refused.
@@ -49,6 +62,8 @@ An EBS volume lives in the storage of one Availability Zone, so it can only be a
 A snapshot is stored at the region level, in S3, so it can be restored into any zone in the region.
 
 This means a single volume is a single zone risk. To survive losing one zone, I would take regular snapshots so I can rebuild the volume in another zone. For the database, I would keep a copy running in a second zone, for example RDS with a standby in another zone, instead of relying on one volume.
+
+![Attach refused across zones](../screenshots/lab03-step15-az-mismatch-test.png)
 
 ### 6. Are the six configuration checks enough?
 
@@ -59,6 +74,9 @@ The six checks cover every part of the path that AWS controls: instance state, r
 What they cannot detect is anything inside the instance, which is the seventh link. For example: nginx not running, the app crashing, the user data failing at boot, or an OS level firewall blocking port 80. All six checks can be correct and the site can still be down.
 
 Also, on Floci the configuration is only read back, not enforced. So even a correct security group is not proof that traffic would be blocked or allowed.
+
+![Six reachability checks](../screenshots/lab03-step14-reachability.png)
+![Reachability report](../screenshots/lab03-ex3-reachability.png)
 
 ### 7. Every difference between usms-web-01 and usms-db-01
 
@@ -79,3 +97,7 @@ Also, on Floci the configuration is only read back, not enforced. So even a corr
 What they share comes from the VPC: the 10.0.0.0/16 range, DNS support and the internet gateway being attached at all.
 
 Floci note: db-01 showed 172.18.0.3 as its private IP, which is the Docker container address. On real AWS it would be inside 10.0.3.0/24.
+
+![usms-web-01 details](../screenshots/lab03-step10-web01-details.png)
+![usms-db-01 details](../screenshots/lab03-step16-db01-details.png)
+![Public subnet auto assigns an IP](../screenshots/lab03-step10-subnet-autoip.png)
