@@ -5,6 +5,9 @@
 My provisional path is A or B, and Step 12 decides it. It is not path C. When I ran describe-scalable-targets directly it answered with an empty list and exit code 0, and the doc says that is a successful answer. The probe first printed "not available" for it. That was most likely a one off failure on the first call, because the same call worked straight after.
 Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation DescribeScheduledActions is not supported"), the same as in Lab 04 Step 3. Floci's Application Auto Scaling has no scheduled action operations at all, so I will record Step 11 (scheduled actions) as a Floci limitation. Docker is not the cause.
 
+![Probe results](../screenshots/lab06-step03-probe.png)
+![Probe errors](../screenshots/lab06-step03-probe-errors.png)
+
 ## Pre lab checks (Steps 1 and 2)
 
 - AWS_PROFILE was empty in a new terminal before I sourced configs/course.env (the Errata 01 check). course.env sets it to floci, and I used that, the same as in Lab 05.
@@ -14,6 +17,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - Step 2: verify-lab-02 PASS=32 FAIL=1, verify-lab-03 PASS=34 FAIL=2, verify-lab-04 PASS=39 FAIL=0 (after Lab 05 Exercise 2), verify-lab-05 PASS=47 FAIL=2. The doc asks for Lab 05 at FAIL=0. My two failures are the grace period limitation that I explained in my Lab 05 notes. Saved to outputs/lab-06-pre-verify-05.txt.
 - The service was at baseline: desired 2, running 2, pending 0, one deployment, one load balancer.
 
+![Latency not measured, cited figure used](../screenshots/lab06-prereq-latency.png)
+![Env loaded, grace period None](../screenshots/lab06-step01-env-loaded.png)
+![Earlier labs verified](../screenshots/lab06-step02-verify-labs.png)
+
 ## Step 4: the service linked role
 
 - create-service-linked-role with ecs.application-autoscaling.amazonaws.com worked. But Floci named the role AWSServiceRoleForEcsApplicationAutoscaling. On real AWS the fixed name is AWSServiceRoleForApplicationAutoScaling_ECSService.
@@ -21,6 +28,9 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - The path is /aws-service-role/ecs.application-autoscaling.amazonaws.com/ (not /), and the trust principal is ecs.application-autoscaling.amazonaws.com, so the role is owned by a service. To remove it I would use delete-service-linked-role, not delete-role.
 - No attached policy was listed. The doc says the policy name may be different or missing on this build.
 - Floci limitation: Floci does not assume this role or check IAM. On real AWS, Application Auto Scaling uses this role for every UpdateService call it makes, and CloudTrail records it.
+
+![Role created under Floci's name](../screenshots/lab06-step04-slr-created.png)
+![Doc name not found, Floci name read back](../screenshots/lab06-step04-slr-verify.png)
 
 ## Step 5: Register the scalable target
 
@@ -31,9 +41,17 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - The service stayed at Desired 2, Running 2, Pending 0 with 1 deployment. Registering a target does nothing when the current count is already inside the bounds.
 - `USMS_SCALABLE_RESOURCE_ID` was not recorded in Lab 4, so I got it from the ARN in this step.
 
+![Resource ID built from the ARN](../screenshots/lab06-step05-resource-id.png)
+![Scalable target registered](../screenshots/lab06-step05-target-verify.png)
+![Service unchanged](../screenshots/lab06-step05-service-unchanged.png)
+
 ## Step 6: Change the bounds
 
 - When I raised only `--max-capacity 12` I got `2 12`, so the minimum I left out did not change. When I put it back I got one row with Min 2 and Max 10, and `length(ScalableTargets)` printed `1`.
+
+![Max raised to 12](../screenshots/lab06-step06-raise-max.png)
+![Bounds back to 2 and 10](../screenshots/lab06-step06-restored.png)
+![One scalable target](../screenshots/lab06-step06-one-target.png)
 
 ### Your turn: MinCapacity 5 while the service runs 2 tasks
 
@@ -44,12 +62,19 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - (a) The scalable target made the change, because its MinCapacity alone forces desiredCount up, with no scaling policy involved and ECS only carrying out the new count.
 - (b) The cost is paying for 3 extra tasks all night while scale in can never go below 5, and a single `describe-scalable-targets` call returning MinCapacity 5 would have told me it had happened.
 
+![MinCapacity stored as 5](../screenshots/lab06-yourturn-min5.png)
+![desiredCount still 2](../screenshots/lab06-yourturn-desired-unchanged.png)
+![No scaling activity](../screenshots/lab06-yourturn-activities.png)
+
 ## Step 7: CPU target tracking policy
 
 - The policy file `templates/lab-06-target-tracking-cpu.json` is valid JSON with no `$` in it (quoted heredoc).
 - CPU_POLICY_ARN: `arn:aws:autoscaling:us-east-1:000000000000:scalingPolicy:c565c0cc-cf6e-4202-b5a6-48faa910f1e4:resource/ecs/service/usms-ecs-cluster/usms-enrolment-svc:policyName/usms-enrolment-cpu-target-tracking`. The ARN uses the `autoscaling` namespace and has the whole resource ID inside it.
 - Verify showed TargetTrackingScaling, ECSServiceAverageCPUUtilization, Target 50.0, Out 60, In 300, NoScaleIn false.
 - Floci made both managed alarms as a side effect, AlarmHigh `...-9d88f3bb-2bc6-4342-ac4d-d345114526a3` and AlarmLow `...-83e9e2c6-5584-4cb3-8221-0219ff9cc086`. I did not make them myself.
+
+![CPU policy ARN](../screenshots/lab06-step07-cpu-policy-created.png)
+![CPU policy verified](../screenshots/lab06-step07-cpu-policy-verify.png)
 
 ## Step 8: The two managed alarms
 
@@ -59,6 +84,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - Both AlarmActions lines were exactly my CPU_POLICY_ARN.
 - `length(MetricAlarms)` with the prefix `TargetTracking-service/usms-ecs-cluster/usms-enrolment-svc` printed `2`, so I can work out the alarm names from the resource ID.
 - I will not edit or delete these alarms, because they belong to the policy.
+
+![Managed alarms](../screenshots/lab06-step08-managed-alarms.png)
+![Alarm actions point at the policy](../screenshots/lab06-step08-alarm-actions.png)
+![Two alarms by prefix](../screenshots/lab06-step08-alarm-count.png)
 
 ### Your turn: time at 100 per cent CPU before a third task serves traffic
 
@@ -78,6 +107,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - Verify showed 2 policies, CPU at 50.0 and requests at 1000.0, each with 2 alarms.
 - Scale out takes the largest capacity that any policy asks for. Scale in only happens when every policy agrees. Nothing has fired yet, because no metric has moved.
 
+![ResourceLabel checked](../screenshots/lab06-step09-resource-label.png)
+![Request policy ARN](../screenshots/lab06-step09-requests-policy-created.png)
+![Two policies with two alarms each](../screenshots/lab06-step09-two-policies.png)
+
 ## Step 10: Step scaling policy and my own alarm
 
 - Before this step I restarted my laptop. After floci-up.sh and sourcing the env files, the scalable target (2 to 10) and both policy ARNs were exactly the same, so hybrid storage kept everything. I rebuilt my shell variables by reading them back from Floci.
@@ -89,6 +122,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - Verify showed StepScaling, ChangeInCapacity, Average, Cooldown 60, and two steps where the second has no upper bound.
 - Floci limitation: the policy's Alarms list is empty. On AWS it would list usms-enrolment-queue-high. The link only exists on the alarm side (AlarmActions), and Floci does not fill in the link the other way.
 
+![Custom metric published](../screenshots/lab06-step10-metric-published.png)
+![Step policy and alarm, Missing null](../screenshots/lab06-step10-step-policy-alarm.png)
+![Step policy with empty Alarms list](../screenshots/lab06-step10-step-policy-verify.png)
+
 ## Step 11: Scheduled actions (not supported on my Floci build)
 
 - I ran the doc's morning command (`cron(45 7 ? * MON-FRI *)`, Asia/Thimphu, min 4 max 10). Floci returned `UnsupportedOperation: Operation PutScheduledAction is not supported`.
@@ -98,11 +135,18 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - This matches Section 8's benign failure: "Only if describe-scheduled-actions is unimplemented ... Check whether Step 11's actions exist at all". I checked, and they do not exist. Floci's Application Auto Scaling code only has scalable targets, scaling policies and scaling activities. So this is a gap in Floci, not in my commands or Docker.
 - What it would do on AWS: at 07:45 Thimphu time on weekdays the floor goes up to 4, which pulls desiredCount up before enrolment opens. At 20:00 the floor goes back to 2, which only lets the reactive policies scale in. A scheduled action changes the bounds, never desiredCount directly.
 
+![Morning action refused](../screenshots/lab06-step11-morning-unsupported.png)
+![UTC fallback refused](../screenshots/lab06-step11-utc-unsupported.png)
+![describe-scheduled-actions refused](../screenshots/lab06-step11-describe-unsupported.png)
+
 ### Your turn: one off at() action
 
 - I built the time with the doc's hint (`at(2026-10-17T15:50:19)`, UTC) and ran put-scheduled-action for usms-enrolment-results-night with min 6 max 10. It failed with UnsupportedOperation, so the action does not exist and I could not observe how it works.
 - The doc's cleanup: delete-scheduled-action was also not supported. I registered the bounds again as 2 and 10, and describe-scalable-targets read back `2 10`.
 - An at() action stays behind as an old entry after it fires, and the MinCapacity of 6 it set stays too, so six months later nobody remembers why the floor is 6 and we keep paying for extra tasks. On the same runbook page as the create command, I would put `aws application-autoscaling delete-scheduled-action --service-namespace ecs --resource-id service/usms-ecs-cluster/usms-enrolment-svc --scalable-dimension ecs:service:DesiredCount --scheduled-action-name usms-enrolment-results-night`, and then register-scalable-target with `--min-capacity 2` to put the floor back.
+
+![at() action refused](../screenshots/lab06-step11-at-unsupported.png)
+![Delete refused, bounds 2 10](../screenshots/lab06-step11-cleanup-bounds.png)
 
 ## Step 12: Fire the alarm and prove who moved the number
 
@@ -117,6 +161,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - Back to baseline: I set the alarm to OK, pushed the metric down first (4, 3, 2), and then set the desired count to 2. The post file (15:48:55Z) caught running still at 10 while Floci stopped the extra containers, and a few seconds later it was 2, 2, 0.
 - I pushed the metric down before setting the count because the policies are still watching, and a high metric would scale it out again.
 
+![Alarm in ALARM on first poll](../screenshots/lab06-step12-alarm-fired.png)
+![Scaling activities 5, 8, 10](../screenshots/lab06-step12-scaling-activities.png)
+![Back to baseline](../screenshots/lab06-step12-baseline-restored.png)
+
 ## Step 13: Suspend and resume
 
 - There is no suspend-scaling call. I used register-scalable-target with `--suspended-state file://templates/lab-06-suspended-state.json` (valid JSON). It showed DynamicScalingInSuspended true, the other two false, and Min 2 Max 10 unchanged.
@@ -124,6 +172,10 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - While it was suspended, all 3 policies were still listed (2 TargetTrackingScaling, 1 StepScaling) and the managed alarm count was still 4. So suspending changed no configuration.
 - I resumed with the shorthand form, all three false, and `SuspendedState.* | grep -ci true` printed 0. The text output is `False False False` with a capital F, which is why I need `-i`.
 - templates/lab-06-suspended-state.json stays in Git as the runbook page for this action.
+
+![Scale in suspended](../screenshots/lab06-step13-suspend-in.png)
+![Policies and alarms untouched](../screenshots/lab06-step13-policies-untouched.png)
+![False with a capital F](../screenshots/lab06-step13-capitals.png)
 
 ## Step 14: Persistence across a restart
 
@@ -133,6 +185,9 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - diff found no differences and printed PERSISTENCE PROVEN.
 - Honest limit: the message also says the two scheduled actions are unchanged. But describe-scheduled-actions is not supported on Floci, so neither file had any scheduled action lines. The diff proves nothing about scheduled actions. TreatMissingData was None in both files (the Step 10 gap), so it matched, but it does not show notBreaching.
 - Laptop restart: the same configuration also survived a full laptop restart before Step 10.
+
+![Floci restart](../screenshots/lab06-step14-restart.png)
+![Persistence proven](../screenshots/lab06-step14-persistence-proven.png)
 
 ## Step 15: From one request to one new task
 
@@ -146,12 +201,19 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - This lab owns three of the nine lines: the metric threshold that starts it, an alarm that fires and calls a policy, and the policy that writes desiredCount limited to 2..10. Everything else (the task definition, the subnets, the security group, the target registration and the health checks) came from Labs 04 and 05.
 - Floci limitation: a minute later the target group still lists 172.18.0.5 and 172.18.0.12 as unhealthy (Target.FailedHealthChecks). They are left over from the Step 12 scale out to 10. Floci stopped the extra containers but did not deregister their IPs. On AWS, ECS deregisters a task's target when it stops the task. The first two tasks, 172.18.0.3 and 172.18.0.4, are still healthy. No verify check counts targets, so I left them and recorded it.
 
+![Trace blocks 1 to 3](../screenshots/lab06-step15-trace-1.png)
+![Trace blocks 4 to 7](../screenshots/lab06-step15-trace-2.png)
+![Stale unhealthy targets](../screenshots/lab06-step15-stale-targets.png)
+
 ## Step 16: configs/lab-06.env
 
 - Doc bug: the doc's block uses `awk -F: '{print \$NF}'` inside `$(...)`. Inside a command substitution the single quotes already protect `$NF`. So the backslash reached awk, and awk failed with "backslash not last character on line", which left USMS_SCALABLE_RESOURCE_ID empty. I removed only that backslash (`'{print $NF}'`) and wrote the file again.
 - After the fix it printed "all values populated". The verify showed 22 exports, bounds 2 .. 10, all three policy ARNs as real arn:aws:autoscaling ARNs (none not-created), and the resource ID matching describe-scalable-targets. I also checked for Windows CR characters and found 0.
 - USMS_SCHEDULED_OUT and USMS_SCHEDULED_IN are recorded as names only. These scheduled actions do not exist on Floci (Step 11).
 - USMS_ASA_SLR records the doc's role name AWSServiceRoleForApplicationAutoScaling_ECSService, which is also what the scalable target's RoleARN shows. In Floci's IAM the role is really named AWSServiceRoleForEcsApplicationAutoscaling (Step 4).
+
+![All values populated after the fix](../screenshots/lab06-step16-env-written.png)
+![lab-06.env verify](../screenshots/lab06-step16-env-verify.png)
 
 ## Step 17: Repair the stale cleanup hints
 
@@ -160,12 +222,17 @@ Known gap: describe-scheduled-actions returns UnsupportedOperation ("Operation D
 - I used the doc's method (backup, python3 replace, bash -n) on only those 3 strings. Each one was found exactly once, and the script still parses. Lines 4, 23 and 35 now say lab-06-cleanup.sh, and line 4 (BEFORE), 24 and 76 still say lab-04-cleanup.sh. I deleted the backup afterwards.
 - I did not run any cleanup script.
 
+![Three stale strings fixed](../screenshots/lab06-step17-cleanup-hint-fixed.png)
+
 ## Section 8.1: verify-lab-06.sh
 
 - Result: PASS=39 FAIL=3 (the doc expects PASS=42 FAIL=0).
 - All 3 failures are in the scheduled actions block: morning action exists, evening action exists, and the morning floor above the evening floor. They all have one cause. PutScheduledAction and DescribeScheduledActions return UnsupportedOperation on my Floci build (Step 11), so the actions were never created. Section 8 lists the third check as benign "only if describe-scheduled-actions is unimplemented", and the two exists checks fail for the same reason.
 - All the checks the doc calls Not benign passed: no suspension switch left true, desiredCount back at the baseline of 2, and MinCapacity at the Lab 04 baseline of 2.
 - Doc bug fixed: the last check `! git ls-files | grep -q '^outputs/'` always fails, because outputs/.gitkeep is tracked on purpose. I changed it to `! git ls-files outputs/ | grep -vx 'outputs/.gitkeep' | grep -q .`, the same fix as in Lab 05. I tested that it passes with only .gitkeep and fails if a real output file is tracked. I also left out the `{% raw %}` website tags around the doc's code block.
+
+![Verify part 1](../screenshots/lab06-section8-verify-1.png)
+![Verify part 2, PASS=39 FAIL=3](../screenshots/lab06-section8-verify-2.png)
 
 ## Final support path
 
@@ -179,6 +246,10 @@ My support path ended up as **path A** for the scaling loop. On my Floci build t
 - Exercise 4: the memory policy is deleted (its managed alarms went with it, so the count is back to 4). Verify PASS=39 FAIL=3.
 - Exercise 5: the history file is 14,509 bytes. The latency is cited (60 s) because Floci never raised desiredCount for MinCapacity 4. lab-06.env has 24 exports, and head-bucket gave 404 with exit code 254.
 - Final checks: verify-lab-05.sh output is the same as in Step 2 (empty diff, PASS=47 FAIL=2), and verify-lab-06.sh is PASS=39 FAIL=3.
+
+![Six managed alarms on Floci](../screenshots/lab06-ex1-memory-policy.png)
+![desiredCount never moved](../screenshots/lab06-ex5-latency.png)
+![Final verify results](../screenshots/lab06-final-verify.png)
 
 ## Section 11: observed versus conceptual on my build
 
