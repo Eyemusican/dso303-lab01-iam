@@ -9,12 +9,18 @@ Final: path A for the control plane and health checks, and path B for the client
 - In Step 11 Floci really health checked the containers and marked both targets healthy.
 - But in Step 12 the DNS name did not resolve and curl could not connect, so I never saw a 200 from my shell. The details are under Step 12.
 
+![Probe results](../screenshots/lab05-step03-elbv2-probe.png)
+
 ## Pre lab checks (Steps 1 and 2)
 
 - floci-storage-check.sh: my version prints [ok] lines instead of a PASS=16 total. Every line was [ok], so I counted it as passing.
 - verify-lab-02.sh: PASS=32 FAIL=1, the same Floci limitation I recorded in Lab 2.
 - verify-lab-03.sh: PASS=34 FAIL=2, the same two Floci limitations I recorded in Lab 3.
 - verify-lab-04.sh: PASS=38 FAIL=0. The doc example shows 49 because its script has more checks than mine. FAIL=0 is what the doc requires.
+
+![Lab 2 verify](../screenshots/lab05-step02-verify-lab02.png)
+![Lab 3 verify](../screenshots/lab05-step02-verify-lab03.png)
+![Lab 4 verify](../screenshots/lab05-step02-verify-lab04.png)
 
 ## Step 4 Your turn: why port 443 alone does not give HTTPS
 
@@ -25,6 +31,8 @@ Opening 443 on usms-alb-sg only opens the firewall. Two things are still missing
 
 AWS Certificate Manager gives the public certificate for free. But it can only issue it for a domain name I own, and I have to get that domain from a registrar.
 
+![usms-alb-sg with 443 open](../screenshots/lab05-step04-your-turn-443.png)
+
 ## Step 5: the load balancer
 
 - ARN: arn:aws:elasticloadbalancing:us-east-1:000000000000:loadbalancer/app/usms-enrolment-alb/7ebbd0c317ac42a4
@@ -32,6 +40,10 @@ AWS Certificate Manager gives the public certificate for free. But it can only i
 - The state went active on the first poll and the waiter returned straight away.
 - Two AZs, us-east-1a and us-east-1b.
 - Both attributes were accepted.
+
+![Load balancer active on first poll](../screenshots/lab05-step05-alb-active.png)
+![Load balancer details](../screenshots/lab05-step05-alb-verify.png)
+![Attributes accepted](../screenshots/lab05-step05-alb-attributes.png)
 
 ## Step 6 Your turn: the health check matcher
 
@@ -41,20 +53,29 @@ I widened the matcher to 200-399 with modify-target-group, read it back, and the
 
 (b) It would be a bug in my work, not in the script. A verification script exists to check the build against the agreed baseline in Section 5.1, which says matcher 200. So a failure there means the script correctly caught that my config drifted from the spec.
 
+![Matcher widened](../screenshots/lab05-step06-your-turn-widened.png)
+![Matcher back to 200](../screenshots/lab05-step06-your-turn-restored.png)
+
 ## Step 7: target group attributes
 
 - deregistration_delay.timeout_seconds 30 and load_balancing.algorithm.type least_outstanding_requests were both accepted.
 - Floci limitation: describe-target-group-attributes only listed the two attributes I set. Real AWS returns the full list, including defaults like stickiness.enabled false and slow_start.duration_seconds 0.
+
+![Only two attributes listed](../screenshots/lab05-step07-tg-attributes.png)
 
 ## Step 8: the listener
 
 - I created the HTTP:80 listener with the default action forward to usms-enrolment-tg. AttachedToLoadBalancers went from 0 to 1.
 - Floci difference: SslPolicy came back as an empty string "" instead of null. Both mean there is no TLS policy, because it is an HTTP listener.
 
+![Listener with empty SslPolicy](../screenshots/lab05-step08-listener-verify.png)
+
 ## Step 9: enrolment sg now admits usms-alb-sg
 
 - Both sources are on port 80: usms-app-sg (from Lab 04, still there on purpose) and usms-alb-sg (from this step). CIDRs are empty.
 - Floci difference: real AWS merges the two rules into one IpPermission entry with two UserIdGroupPairs, because they share protocol and port. Floci kept them as two separate IpPermission entries. Unlike Lab 2, the group referenced rule was not dropped.
+
+![Two separate source entries](../screenshots/lab05-step09-enrolment-sg-verify.png)
 
 ## Step 10: attaching the service (fallback path taken)
 
@@ -67,6 +88,10 @@ I widened the matcher to 200-399 with modify-target-group, read it back, and the
 - Result: loadBalancers now has one entry (enrolment-api on port 80, usms-enrolment-tg). The task definition is still usms-enrolment:4, with no new revision.
 - Floci limitation: healthCheckGracePeriodSeconds stays null after both create-service and a second update-service. Real AWS would store 60 and ignore target health for the first 60 seconds of each task.
 
+![update-service ignored](../screenshots/lab05-step10-update-service-ignored.png)
+![Grace period not stored](../screenshots/lab05-step10-grace-not-stored.png)
+![Service recreated with the load balancer](../screenshots/lab05-step10-service-lb-attached.png)
+
 ## Step 11: targets registered by the service
 
 - Two targets appeared on the first poll, both healthy. I never ran register-targets. The ECS service registered them.
@@ -74,6 +99,10 @@ I widened the matcher to 200-399 with modify-target-group, read it back, and the
 - Because the targets went healthy, Floci's load balancer really probed GET / on the containers and got 200.
 - Service: desired 2, running 2, pending 0, one deployment, rolloutState COMPLETED, and loadBalancers pointing at usms-enrolment-tg. The events list was None, the same as Lab 04.
 - Part 3: list-tasks returned four tasks. Two were RUNNING (the new service) and two were STOPPED (the old service before the fallback). For every task, healthStatus and the private IP were None, so I could only observe the load balancer half of the side by side comparison. Real AWS would give HEALTHY or UNKNOWN and the task's 10.x address, so I could line them up by address.
+
+![Two healthy targets](../screenshots/lab05-step11-targets-registered.png)
+![Service state](../screenshots/lab05-step11-service-account.png)
+![Task and target health side by side](../screenshots/lab05-step11-health-side-by-side.png)
 
 ### Reading ECS health and target health together
 
@@ -94,6 +123,9 @@ I widened the matcher to 200-399 with modify-target-group, read it back, and the
 
 If the service did not register its own targets, I would have had to update the target group by hand after every scaling event. I would run register-targets with each new task's IP address and deregister-targets for each task that stopped.
 
+![Third target initial](../screenshots/lab05-step11-your-turn-scaled-3.png)
+![Back to two targets](../screenshots/lab05-step11-your-turn-back-to-2.png)
+
 ## Step 12: proving the path
 
 Part 1, data path: usms-enrolment-alb-7ebbd0c317ac42a4.elb.floci did not resolve on my Windows host (getaddrinfo failed), and curl returned http_code=000. I did NOT get a 200. Floci does not publish the load balancer on any host port, and the doc says not to publish extra ports to force it. Real AWS would resolve the name to the public addresses of the nodes in us-east-1a and us-east-1b and forward to a healthy target.
@@ -106,6 +138,9 @@ Part 2, control plane proof, saved in outputs/lab-05-path-proof.txt:
 4. usms-enrolment-svc registered them, container enrolment-api on port 80. Grace period None, as recorded in Step 10.
 5. usms-enrolment-sg admits usms-alb-sg (sg-43a4d32b229ced732), so the link that matters on real AWS is in place. usms-app-sg is still there until Step 13.
 
+![DNS name does not resolve](../screenshots/lab05-step12-data-path-unavailable.png)
+![Control plane proof](../screenshots/lab05-step12-control-plane-proof.png)
+
 ## Step 13: the cutover
 
 - describe-security-group-rules found the Lab 04 rule as sgr-bf15d58c0dae9e42c (inbound tcp/80 from usms-app-sg).
@@ -113,6 +148,10 @@ Part 2, control plane proof, saved in outputs/lab-05-path-proof.txt:
 - Workaround: I revoked the same rule using --ip-permissions file://policies/usms-enrolment-sg-ingress.json. This is the Lab 04 document for exactly this rule, and the doc's danger box names it as the way to restore the rule. That also returned True.
 - After that, describe-security-groups (the view the doc's Verify uses) shows one source on port 80, usms-alb-sg (sg-43a4d32b229ced732), and usms-app-sg is gone. The load balancer is now the only thing that can open a connection to an enrolment task.
 - Floci limitation: describe-security-group-rules still lists the old sgr-bf15d58c0dae9e42c, so Floci keeps a separate rule list that went stale. On real AWS both views always agree.
+
+![Old rule found](../screenshots/lab05-step13-find-old-rule.png)
+![Rule still listed after revoke by ID](../screenshots/lab05-step13-revoke-by-id-ignored.png)
+![Only usms-alb-sg left](../screenshots/lab05-step13-cutover-verified.png)
 
 ## Step 13 part 3: verify-lab-04.sh after the cutover
 
@@ -126,6 +165,8 @@ There are three possible responses:
 
 From here, verify-lab-05.sh is the script of record.
 
+![verify-lab-04 diff after the cutover](../screenshots/lab05-step13-verify-lab04-diff.png)
+
 ## Step 14: forced deployment behind the load balancer
 
 - update-service --force-new-deployment returned Deployments 1 straight away. Over 15 polls the deployment stayed COMPLETED with 2 running, and both targets stayed 172.18.0.3 and 172.18.0.4 and healthy.
@@ -134,12 +175,19 @@ From here, verify-lab-05.sh is the script of record.
 - Floci limitation: --force-new-deployment returns success but does not replace any tasks, so I could not observe initial, healthy and draining during a deployment. Real AWS would start new tasks, register them as initial, and wait for healthy. Then it would mark the old ones draining for up to the 30 second deregistration delay before stopping them.
 - Doc bug: the poll loop's stop check uses --query 'length(deployments)'. This errors with "invalid type for value: None" because the path is missing services[0]. It should be 'length(services[0].deployments)'. Because of this the loop always ran all 15 polls, but the polls themselves were not affected.
 
+![Same tasks before and after](../screenshots/lab05-step14-pre-post-compare.png)
+![Poll loop length() error](../screenshots/lab05-step14-deploy-watch.png)
+
 ## Step 15: listener rule
 
 - I created the rule at priority 10. Path pattern /alb-health and /alb-health/* returns a fixed-response 200 text/plain "usms-enrolment-alb ok" without contacting any target.
 - describe-rules shows two entries: my rule (Priority "10", IsDefault false, fixed-response, status "200", no target group) and the default action (Priority "default", IsDefault true, forward to usms-enrolment-tg).
 - Floci difference: Conditions[0].Values came back empty. The two paths are stored only in Conditions[0].PathPatternConfig.Values, which I checked separately. Real AWS fills both.
 - Part 3: curl to / and to /alb-health both returned 000. This is the same missing data path as in Step 12, so describe-rules is my evidence that the rule is in place and is checked before the default action.
+
+![Rule and default action](../screenshots/lab05-step15-rules-verify.png)
+![Paths in PathPatternConfig](../screenshots/lab05-step15-rule-paths.png)
+![curl returns 000](../screenshots/lab05-step15-curl-no-data-path.png)
 
 ## Step 16: persistence
 
@@ -148,6 +196,9 @@ From here, verify-lab-05.sh is the script of record.
 - Honest note: the grace period was None both before and after (the Step 10 limitation). So the check proves that the None survived, not a stored value of 60.
 - The tag:Name filter on describe-security-groups returned the right group, sg-43a4d32b229ced732.
 
+![Floci restart](../screenshots/lab05-step16-restart.png)
+![Persistence proven](../screenshots/lab05-step16-persistence-proven.png)
+
 ## Step 17: closing the loop
 
 - usms-alb-sg admits tcp/80 and tcp/443 from 0.0.0.0/0. The 443 rule is from my Step 4 Your turn, so I have one more rule than the doc's example.
@@ -155,10 +206,16 @@ From here, verify-lab-05.sh is the script of record.
 - LOOP CLOSED: usms-web-01 (i-00d916c5e2de6fcf8) still carries usms-app-sg, but that group no longer grants it anything on the tasks. It now has to call usms-enrolment-alb-7ebbd0c317ac42a4.elb.floci instead of a task address. The instance.group-id filter worked this time and returned only usms-web-01.
 - Audit: usms-alb-sg, the load balancer and the target group are all tagged Lab=05, and elbv2 describe-tags worked on my build.
 
+![Cutover confirmed](../screenshots/lab05-step17-cutover-confirmed.png)
+![Loop closed and tag audit](../screenshots/lab05-step17-loop-closed-audit.png)
+
 ## Step 18: configs/lab-05.env
 
 - I wrote it by lookup. It has 15 exports, all filled in except USMS_SVC_GRACE_PERIOD=None. That is the Step 10 Floci limitation (real AWS would record 60).
 - Doc bug: the listener line's filter Listeners[?Port==\`80\`] failed on my shell with "Bad jmespath expression: Unknown token \". Inside $(...) the backslash reached the AWS CLI together with the backtick, which left USMS_ALB_LISTENER_ARN empty. I changed only that filter to Listeners[?to_string(Port)=='80']. It means the same thing and needs no backticks. After that the listener ARN was filled in.
+
+![Grace period recorded as None](../screenshots/lab05-step18-env-written.png)
+![lab-05.env verify](../screenshots/lab05-step18-env-verify.png)
 
 ## Section 9: verify-lab-05.sh
 
@@ -169,6 +226,10 @@ From here, verify-lab-05.sh is the script of record.
   2. "configs/lab-05.env has no empty values": the file records USMS_SVC_GRACE_PERIOD=None for the same reason. Every other value in the file is filled in.
 - Cleanup script: I built scripts/cleanup/lab-05-cleanup.sh and checked it with bash -n (syntax OK). I have NOT run it.
 - Doc typo: its comments say "Run AFTER lab-04-cleanup.sh and BEFORE lab-04-cleanup.sh". From the doc's own order list, the first one should be the Lab 06 cleanup (scaling configuration). I copied it as written because it is only a comment.
+
+![First run PASS=46 FAIL=3](../screenshots/lab05-section9-verify-first-run-2.png)
+![Final run PASS=47 FAIL=2](../screenshots/lab05-section9-verify-final.png)
+![Cleanup script syntax OK](../screenshots/lab05-section9-cleanup-syntax-ok.png)
 
 ## Section 12.1: what I actually observed on my build
 
