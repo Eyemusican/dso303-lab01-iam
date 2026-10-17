@@ -17,6 +17,9 @@ Two probe lines first said "not available", so I checked the real errors:
 
 Nothing in this lab uses scheduled actions, so Lab 4 is not affected. In Lab 6, scheduled scaling (for example scaling up before enrolment week) will not work on this build, and I will need the documented fallback there.
 
+![Probe results](../screenshots/lab04-step03-probe.png)
+![Probe errors](../screenshots/lab04-step03-probe-errors.png)
+
 ## Step 7: One policy, two kinds of compute
 
 I attached USMSStudentDataReadWrite to the new ECS task role usms-ecs-task-role. This is the same policy Lab 1 made for the EC2 role. When I read the policy back, it was exactly the same document that Lab 3 Step 11 printed. It allows listing the bucket and getting, putting and deleting objects inside it, and it has a Deny on DeleteBucket, all on arn:aws:s3:::usms-student-data.
@@ -29,6 +32,9 @@ So now two things hold the same permission through two different mechanisms:
 Neither has an access key on disk, and the policy did not need any change. Both will start working at the same moment a later lab creates the usms-student-data bucket.
 
 Small note: my lab-01.env stores USMS_POLICY_S3_RW and USMS_ROLE_DEVELOPER as full ARNs, not just names. So I used the variables directly instead of building the ARN the way the lab's commands do.
+
+![Policy attached to the task role](../screenshots/lab04-step07-task-role.png)
+![Policy document read back](../screenshots/lab04-step07-task-role-policy.png)
 
 ## Step 10: Tasks crashing, and switching to revision 3
 
@@ -45,6 +51,10 @@ A task definition revision cannot be edited. So I copied the template to templat
 
 I got revision 2 instead of 1 because the register command ran twice. Revision 1 is the same document as revision 2.
 
+![Tasks crash with exec format error](../screenshots/lab04-step10-exec-format-error.png)
+![Alpine image fails, stable image works](../screenshots/lab04-step10-image-test.png)
+![Revision 3 with the new image](../screenshots/lab04-step10-revision3.png)
+
 ## Verify script: a bug in the git check
 
 The first run gave PASS=37 FAIL=1. The failing check was "no secret is tracked by git", which ran git ls-files | grep -q '^outputs/'.
@@ -55,6 +65,8 @@ I changed it to ignore .gitkeep and fail on anything else: git ls-files outputs/
 
 I also added export MSYS_NO_PATHCONV=1 at the top of the script. Git Bash on Windows turns /usms/ecs/enrolment into a Windows path, and that would make the log group checks fail for no real reason.
 
+![Verify after the fix](../screenshots/lab04-verify.png)
+
 ## Review Questions
 
 ### 1. "I put auto scaling on the task definition"
@@ -64,6 +76,8 @@ This is not correct. The task definition is just a recipe for how the task shoul
 Auto scaling changes the service's `desiredCount`. This is the same number I changed by hand from 2 to 3 and back in Step 11. The ECS service scheduler then starts or stops tasks until the `runningCount` matches the `desiredCount`. The task definition itself does not do any scaling.
 
 In Lab 06 the service will be registered with Application Auto Scaling as a scalable target. Application Auto Scaling is a separate service from ECS. Because of that, ECS itself knows nothing about the scaling, so `describe-services` shows no scaling settings. Also, if someone changes `desiredCount` by hand, the next scaling action can overwrite it.
+
+![desiredCount changed by hand](../screenshots/lab04-step11-scale-by-hand.png)
 
 ### 2. One policy, two delivery mechanisms
 
@@ -87,6 +101,8 @@ Both roles trust `ecs-tasks.amazonaws.com`, but they have different permissions.
 
 The trust policy is the same because it only says who is allowed to assume the role, and in both cases that is the ECS tasks service. What each role can do comes from its own permissions policy.
 
+![Execution role trusts ecs-tasks](../screenshots/lab04-step06-exec-role-verify.png)
+
 ### 4. Sourcing the rule from usms-app-sg
 
 Using `usms-app-sg` as the source is better than using a CIDR such as `10.0.1.0/24`, because it lets only the web tier reach the enrolment API.
@@ -99,6 +115,9 @@ So there are two separate reasons:
 
 - Even if the task count never changed, the group reference is still correct. It says who may call the service (the web tier), not where that caller happens to sit.
 - Once Lab 06 lets the task count change by itself, the group reference becomes close to mandatory. Every new task and every new web server automatically carries its security group and gets the right access, with no list of IP addresses to keep updated.
+
+![Rule sourced from a group](../screenshots/lab04-step08-enrolment-sg-verify.png)
+![Source group resolves to usms-web-01](../screenshots/lab04-ex5-linkage.png)
 
 ### 5. What Fargate removes and what it does not
 
