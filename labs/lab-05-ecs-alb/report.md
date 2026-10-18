@@ -53,25 +53,11 @@ The HTTP:80 listener has two parts:
 
 usms-enrolment-svc from Lab 4 is attached to that target group and registers its two tasks itself. The tasks stay in the private subnets with no public IP. After the cutover, usms-enrolment-sg admits tcp 80 only from usms-alb-sg.
 
-    Internet
-       |  http://usms-enrolment-alb-...elb.floci/
-       v
-    usms-igw -> usms-public-rt
-       |
-    usms-enrolment-alb  [usms-alb-sg: tcp 80, 443 from 0.0.0.0/0]
-     nodes in usms-public-subnet-a (1a) and usms-public-subnet-b (1b)
-     listener HTTP:80
-       rule priority 10   /alb-health, /alb-health/*  -> fixed-response 200
-       default action                                  -> forward usms-enrolment-tg
-                                                          target type ip, GET / every 30s
-       |
-       | tcp 80, source = usms-alb-sg ONLY (after the Step 13 cutover)
-       v
-    usms-enrolment-svc  (registers and deregisters its own targets)
-       task in usms-private-subnet-a  [usms-enrolment-sg]
-       task in usms-private-subnet-b  [usms-enrolment-sg]
+![Lab 5 architecture](../../diagrams/lab05-architecture.png)
 
-    usms-web-01 [usms-app-sg] still exists, but usms-app-sg no longer grants it anything on the tasks.
+I drew this diagram in Cloud Architecture Lab. The tool works out subnet ranges by itself, so I wrote my real /24 ranges in the subnet names.
+
+usms-web-01 [usms-app-sg] still exists, but usms-app-sg no longer grants it anything on the tasks.
 
 ## 5. Implementation Procedure
 
