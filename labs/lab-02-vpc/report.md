@@ -43,6 +43,10 @@ In this lab I built all of these pieces for USMS. I reused the IAM identities fr
 
 ## 4. System Architecture / Design
 
+![Lab 2 architecture](../../diagrams/lab02-architecture.png)
+
+I drew this diagram in Cloud Architecture Lab. The tool works out subnet ranges by itself, so I wrote my real /24 ranges in the subnet names.
+
 The VPC uses the address range `10.0.0.0/16`. Inside it there are three public subnets (`usms-public-subnet-a/b/c`) and two private subnets (`usms-private-subnet-a/b`), spread across three Availability Zones.
 
 The public subnets route out through an internet gateway. The private subnets route out through a NAT gateway, and the NAT gateway itself sits in a public subnet.
