@@ -56,19 +56,9 @@ The tasks have no route to the internet gateway. They reach the internet only th
 
 The execution role usms-ecs-exec-role pulls the image and writes to the log group /usms/ecs/enrolment (7 day retention). The task role usms-ecs-task-role carries USMSStudentDataReadWrite, which is the same policy that usms-ec2-app-role carries in Lab 3.
 
-    usms-web-01 [usms-app-sg]  (Lab 3, public subnet a)
-          |
-          | tcp 80, allowed by group reference
-          v
-    usms-ecs-cluster
-     usms-enrolment-svc   desiredCount 2, FARGATE, assignPublicIp DISABLED
-       task in usms-private-subnet-a  [usms-enrolment-sg]
-       task in usms-private-subnet-b  [usms-enrolment-sg]
-          |
-          | image pull and outbound only via usms-nat (Lab 2)
-          |
-     execution role usms-ecs-exec-role -> USMSECSTaskExecution -> /usms/ecs/enrolment logs
-     task role usms-ecs-task-role      -> USMSStudentDataReadWrite (Lab 1) -> usms-student-data
+![Lab 4 architecture](../../diagrams/lab04-architecture.png)
+
+I drew this diagram in Cloud Architecture Lab. The tool works out subnet ranges by itself, so I wrote my real /24 ranges in the subnet names.
 
 ## 5. Implementation Procedure
 
