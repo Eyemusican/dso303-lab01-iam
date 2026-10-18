@@ -61,19 +61,9 @@ It is a t3.micro in usms-private-subnet-a (10.0.3.0/24) with usms-db-sg. It has 
 
 The public subnet routes to the internet through usms-igw. The private subnet only goes out through usms-nat. I created a golden AMI, usms-web-golden, from usms-web-01 for Lab 8.
 
-    Internet
-       |
-    usms-igw
-       |
-    usms-public-subnet-a (10.0.1.0/24)          usms-private-subnet-a (10.0.3.0/24)
-     usms-web-01  [usms-app-sg]                   usms-db-01  [usms-db-sg]
-       |  EIP 54.178.200.69                         no public IP, no profile
-       |  profile usms-ec2-app-profile              outbound only via usms-nat
-       |  -> usms-ec2-app-role                      admits 5432 from usms-app-sg
-       |  -> USMSStudentDataReadWrite
-       |  root volume + usms-web-data-vol (/dev/sdf)
-       |
-    golden AMI usms-web-golden
+![Lab 3 architecture](../../diagrams/lab03-architecture.png)
+
+I drew this diagram in Cloud Architecture Lab. The tool works out subnet ranges by itself, so I wrote my real /24 ranges in the subnet names.
 
 ## 5. Implementation Procedure
 
