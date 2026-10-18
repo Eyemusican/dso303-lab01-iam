@@ -45,18 +45,9 @@ The key idea is that auto scaling only picks the number. Everything else stays t
 
 The scalable target sits on top of the Lab 5 service and only writes desiredCount. Three policies and their alarms pick the value, and the bounds 2 and 10 limit it.
 
-    CloudWatch metrics                      alarms                         policies
-    AWS/ECS CPU            -> TargetTracking AlarmHigh / AlarmLow -> usms-enrolment-cpu-target-tracking (50)
-    ALB requests per target -> TargetTracking AlarmHigh / AlarmLow -> usms-enrolment-requests-target-tracking (1000)
-    USMS/Enrolment queue   -> usms-enrolment-queue-high (>= 100)  -> usms-enrolment-queue-step-out (+1 / +3)
-                                                                           |
-                                                                           v
-                     scalable target service/usms-ecs-cluster/usms-enrolment-svc  min 2  max 10
-                                                                           |
-                                         service linked role -> ECS UpdateService desiredCount
-                                                                           |
-                                                                           v
-                     usms-enrolment-svc (usms-enrolment:4, private subnets) -> usms-enrolment-tg -> usms-enrolment-alb
+![Lab 6 architecture](../../diagrams/lab06-architecture.png)
+
+I drew this diagram in Cloud Architecture Lab. The tool works out subnet ranges by itself, so I wrote my real /24 ranges in the subnet names.
 
 The scheduled actions (morning floor 4 at 07:45, evening floor 2 at 20:00, Asia/Thimphu) are part of the design, but I could not create them on Floci.
 
