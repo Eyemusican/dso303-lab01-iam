@@ -34,6 +34,10 @@ IAM is important because it enforces least privilege. This means every identity 
 
 ## 4. System Architecture / Design
 
+![Lab 1 architecture](../../diagrams/lab01-architecture.png)
+
+I drew this diagram in Cloud Architecture Lab.
+
 For this lab I used Floci, a local AWS emulator that runs inside Docker and is managed with Docker Compose. My AWS CLI sends commands to Floci at `http://localhost:4566`. Floci saves all IAM data to `~/floci-data` on my computer using `FLOCI_STORAGE_MODE=hybrid`, so the data stays even after a restart.
 
 I built:
