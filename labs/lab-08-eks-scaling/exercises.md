@@ -73,7 +73,7 @@ kubectl get hpa usms-reports-hpa -o jsonpath='{"min="}{.spec.minReplicas}{"  max
 
 - No second type LoadBalancer Service, because each one is its own NLB and its own bill, and it would expose the whole results Service rather than one path.
 - An Ingress (rung 4 of the Step 13 ladder) on top of results' existing ClusterIP Service (rung 1). I wrote manifests/lab-08/70-ingress-results.yaml, usms-results-ingress, with only /results, so enrolment is not part of it.
-- It joins the same ALB as usms-portal-ingress through alb.ingress.kubernetes.io/group.name: usms-portal. The AWS Load Balancer Controller merges every Ingress in a group into one ALB, so there is no second load balancer, and the address stays the ALB's stable DNS name.
+- It carries alb.ingress.kubernetes.io/group.name: usms-portal. The AWS Load Balancer Controller merges every Ingress with the same group.name into one ALB, so usms-portal-ingress needs the same annotation too. My Step 16 file follows the doc and does not have it, so on real EKS I would add it there, otherwise the controller would build two ALBs. With both in the group there is no second load balancer, and the address stays the ALB's stable DNS name.
 - alb.ingress.kubernetes.io/conditions.usms-results adds a source-ip condition to just this rule, so /results only answers the university's range. I used 203.0.113.0/24 as an example range because I do not have the real one.
 - The Step 16 Ingress is a starting point but the wrong shape, because it sends /results and /enrolment to anyone. In production I would remove both paths from usms-portal-ingress and leave / to the gateway, so the restricted rule is the only route to results.
 

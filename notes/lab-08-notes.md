@@ -12,13 +12,7 @@
 - The _lb_ports_ tag reads 8081,8082 both in configs/lab-07.env and on the cluster, so Step 15 can publish the LoadBalancer Service on my machine.
 - verify-lab-07.sh gives PASS=30 FAIL=0. There are four Deployments, not three, because usms-timetable from Lab 07 Exercise 1 is still there. All four Services are ClusterIP with no external address, and usms-enrolment-secret is present.
 
-![Step 1 checks](../screenshots/lab08-step01-checks.png)
-
-## Step 1: the two things Lab 07 had to leave behind
-
-- usms-enrolment still declares requests {"cpu":"50m","memory":"32Mi"}, so the HPA in Step 8 has its denominator.
-- The _lb_ports_ tag reads 8081,8082 both in configs/lab-07.env and on the cluster, so Step 15 can publish the LoadBalancer Service on my machine.
-- verify-lab-07.sh gives PASS=30 FAIL=0. There are four Deployments, not three, because usms-timetable from Lab 07 Exercise 1 is still there. All four Services are ClusterIP with no external address, and usms-enrolment-secret is present.
+- I started Floci with ./scripts/setup/floci-up.sh (FLOCI_STORAGE_MODE=hybrid in configs/course.env) and sourced configs/course.env, lab-01.env, lab-02.env, lab-04.env and lab-07.env.
 
 ![Step 1 checks](../screenshots/lab08-step01-checks.png)
 
@@ -53,6 +47,8 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - The diff did not show the Secret env entries from Lab 07 Step 17, so apply keeps fields that were added with kubectl set env.
 - The full diff output was very long because of the last-applied-configuration annotation, so I ran Parts 3 and 4 again with the diff filtered to the changed lines for the screenshot.
 
+- kubectl diff exits with code 1 when it finds a difference and 0 when there is none, so 1 here is a result, not an error. In a script with set -e I would add || true so the diff does not stop the script.
+
 ![Drift and apply undoing it](../screenshots/lab08-step05-drift.png)
 ![Diff first, then restore](../screenshots/lab08-step05-diff-restore.png)
 
@@ -63,6 +59,9 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - Your turn: usms-gateway went Burstable (pod 7d98649dc-477pc), then Guaranteed after I set requests equal to the limits (cpu 200m, memory 128Mi, pod 66f7c64fcf-fhflr), then Burstable again when I set the requests back to 50m and 32Mi (pod 7d98649dc-fnvfn). The limits never changed, so the gateway could do the same work.
 - The pod was replaced each time, not adjusted, because requests and limits are part of the pod template and changing them is dimension 2 from Step 3. That is why VerticalPodAutoscaler is used far less than the HPA. Putting it back reused the old ReplicaSet 7d98649dc because the template was the same as before.
 - I would want Guaranteed for a pod that must not be evicted or slowed down under node pressure, like a database or a payment service, where I would rather reserve the full capacity than share it.
+
+- The third class is BestEffort: no requests or limits at all. It is evicted first under node pressure, and an HPA cannot compute a percentage for it because there is no request. None of my pods are BestEffort.
+- Capacity is everything the node has. Allocatable is capacity minus what is kept back for the kubelet, the system and eviction thresholds, and the scheduler only places pods against allocatable, so the percentages in describe node are of allocatable.
 
 ![QoS classes and node allocation](../screenshots/lab08-step06-qos.png)
 ![Gateway Burstable to Guaranteed and back](../screenshots/lab08-step06-guaranteed.png)
@@ -83,15 +82,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - Conditions: AbleToScale True, ScalingActive True with ValidMetricFound ("the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)"), and ScalingLimited False.
 - From now on the HPA owns spec.replicas of usms-enrolment.
 
-![HPA created](../screenshots/lab08-step08-hpa.png)
-
-## Step 8: the HorizontalPodAutoscaler
-
-- I applied manifests/lab-08/10-hpa-enrolment.yaml (autoscaling/v2, target usms-enrolment, min 2, max 8, CPU 50% of the request).
-- Two seconds after creation TARGETS was <unknown>/50% and REPLICAS 0, because the HPA had not read a metric yet. After 30 seconds it showed cpu: 2%/50% and REPLICAS 2.
-- describe shows the behavior block as written: scale up with no window, the higher of 100% or 2 pods every 15 seconds; scale down with a 300 second window and at most 1 pod every 60 seconds.
-- Conditions: AbleToScale True, ScalingActive True with ValidMetricFound ("the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)"), and ScalingLimited False.
-- From now on the HPA owns spec.replicas of usms-enrolment.
+- The behavior block mapped to Lab 06 field by field: scaleTargetRef is RegisterScalableTarget on service/cluster/service; minReplicas and maxReplicas are MinCapacity and MaxCapacity; the cpu metric with averageUtilization 50 is TargetTrackingScaling on ECSServiceAverageCPUUtilization (but the HPA divides by the container request, ECS by the task's reserved CPU); scaleDown.stabilizationWindowSeconds 300 is ScaleInCooldown 300; scaleUp.stabilizationWindowSeconds with its policies is ScaleOutCooldown, plus rate limits; and there are no CloudWatch alarms, because the controller polls the metric itself.
 
 ![HPA created](../screenshots/lab08-step08-hpa.png)
 
@@ -114,16 +105,6 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 ![Scale out from 2 to 3](../screenshots/lab08-step09-scale-out.png)
 ![Scale in after the 300 second window](../screenshots/lab08-step09-scale-in.png)
 ![The HPA's own reasons](../screenshots/lab08-step09-hpa-events.png)
-
-## Step 10: scaling the data plane from the AWS side
-
-- describe-nodegroup: usms-eks-nodes ACTIVE, min 2 / max 4 / desired 2, t3.small, subnets subnet-7f8e9295 and subnet-f32c9b5a, labels workload=usms and tier=app. Saved to outputs/lab-08-nodegroup-before.json.
-- Floci limitation: update-nodegroup-config to min 2 / max 6 / desired 3 failed with 400 InvalidArgument and an S3 message ("POST requires either ?uploads, ?uploadId, ?restore or ?select parameter"), so Floci sent the EKS request to its S3 handler. This is listed on the course Known Issues page for Lab 08, which says to use the HPA drill from Steps 8 and 9 instead. I did that drill.
-- There was no update id, so describe-update printed the doc's fallback message. The node group stayed at min 2 / max 4 / desired 2 (outputs/lab-08-nodegroup-after.json) and Kubernetes still had one node.
-- Even on a build where the update works, Floci only records desiredSize and starts no node. On real AWS the Auto Scaling group would launch a third t3.small that joins as Ready. Raising replicas (the HPA) and raising desiredSize are separate operations on separate APIs, and nothing connects them unless a Cluster Autoscaler or Karpenter is installed.
-- The node showed no workload label, so the node group labels never reached the k3s node.
-
-![Node group update failed](../screenshots/lab08-step10-nodegroup.png)
 
 ## Step 10: scaling the data plane from the AWS side
 
@@ -200,6 +181,16 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - On real EKS the longest matching path wins, so /enrolment/x goes to usms-enrolment even though / also matches. Lab 05's ALB used numeric rule priority instead. /enrolment through the Ingress also skips usms-gateway.
 - No controller question: on real EKS the AWS Load Balancer Controller would have run the same calls I ran by hand in Lab 05, in this order. First aws elbv2 create-load-balancer, an internet facing ALB in usms-public-subnet-a and -b. Then aws elbv2 create-target-group with --target-type ip, one per backend Service (enrolment, results, gateway), with the health check on /healthz. Then aws elbv2 create-listener on HTTP 80. Then aws elbv2 create-rule for /enrolment and /results, with / as the listener's default action. After that it keeps the targets registered and deregistered by watching the Endpoints, which ECS did for me in Lab 05. Ten paths would still be one ALB, not ten.
 
+- Each annotation in 60-ingress.yaml against the Lab 05 command it replaces:
+
+| Annotation | Lab 05 command |
+| --- | --- |
+| alb.ingress.kubernetes.io/scheme: internet-facing | aws elbv2 create-load-balancer --scheme internet-facing |
+| alb.ingress.kubernetes.io/target-type: ip | aws elbv2 create-target-group --target-type ip |
+| alb.ingress.kubernetes.io/listen-ports: [{"HTTP": 80}] | aws elbv2 create-listener --protocol HTTP --port 80 |
+| alb.ingress.kubernetes.io/healthcheck-path: /healthz | aws elbv2 create-target-group --health-check-path |
+| alb.ingress.kubernetes.io/tags: Project=USMS,Tier=web,Lab=08 | the --tags on create-load-balancer and create-target-group |
+
 ![Ingress with no controller](../screenshots/lab08-step16-ingress.png)
 ![Routes: no address](../screenshots/lab08-step16-routes.png)
 
@@ -262,7 +253,10 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - verify-lab-08.sh gave PASS=33 FAIL=1. The one failure is "node group maxSize was raised to 6", because update-nodegroup-config fails on my Floci build (Step 10, course Known Issues).
 - Straight after writing the script I applied the same one line fix as in Labs 06 and 07, so the "no secret is tracked by git" check ignores only outputs/.gitkeep.
 
+- The smoke test passed, and bash -n scripts/cleanup/lab-08-cleanup.sh found no syntax errors. I did not run the cleanup script, because Lab 09 builds on this cluster.
+
 ![Verify](../screenshots/lab08-verify.png)
+![Smoke test and cleanup syntax check](../screenshots/lab08-smoke-cleanup.png)
 
 ## ECS or Kubernetes for USMS
 
@@ -303,3 +297,16 @@ I would keep the route through usms-gateway and delete the /enrolment and /resul
 **7. Why minAvailable 1 did not stop kubectl delete pod.**
 
 A PDB only governs the eviction API, which is how cooperative tools like kubectl drain and a cluster autoscaler ask to remove pods. kubectl delete pod does not use eviction, so it went straight through, while my eviction request was refused with TooManyRequests. Voluntary disruptions are requested through an API, like a drain for an upgrade. Involuntary ones, like a node crash or an instance terminated in the console, are never asked about, so a PDB cannot stop them. A realistic save: during a node group upgrade, EKS drains each old node, and usms-gateway-pdb with two replicas makes it move one gateway pod at a time, so the portal never goes down during the upgrade.
+
+## Section 15: clean up
+
+- I deleted usms-loadgen, and usms-reports with its HPA from Exercise 3 was already deleted. No node is cordoned.
+- What stays for Lab 09 and later: usms-enrolment 2, usms-gateway 2, usms-results 2, usms-timetable 1, both HPAs at 2%, the PDBs, the NodePort and LoadBalancer Services and both Ingresses.
+
+![Clean up](../screenshots/lab08-section15-cleanup.png)
+
+## Step 20: commit
+
+- Before git add I checked git status --short. Nothing under outputs/ was listed, and configs/lab-08.env and manifests/lab-07/20-enrolment.yaml were.
+- git check-ignore -v outputs/lab-08-baseline.txt named the rule .gitignore:1:outputs/* so everything in outputs/ stays local except .gitkeep.
+- I staged the Lab 08 files by name and committed them as "Updating lab 8". git ls-files outputs/ shows only outputs/.gitkeep.

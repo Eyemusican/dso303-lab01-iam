@@ -29,7 +29,7 @@ My browser reaches the cluster through port forwarding on Floci (an Ingress on r
 ## 5. Implementation Procedure
 
 1. I recovered the cluster after a restart, checked kubectl, the node and the four Lab 07 deployments, and recorded a baseline.
-2. I scaled enrolment by hand, saw the topology spread, then showed drift by comparing the live state with the manifest using kubectl diff, and restored it.
+2. I scaled enrolment by hand, saw the traffic spread across all five pods, then showed drift by comparing the live state with the manifest using kubectl diff, and restored it.
 3. I checked the QoS class of each pod and made a Guaranteed pod to compare.
 4. I checked metrics-server with kubectl top and the metrics API, then created usms-enrolment-hpa (autoscaling/v2, 50% CPU, 2 to 8 pods, with a behavior block).
 5. I ran usms-loadgen (3 busybox pods) and watched the HPA scale enrolment from 2 to 3, then back to 2 after the 300 second window.
@@ -37,7 +37,7 @@ My browser reaches the cluster through port forwarding on Floci (an Ingress on r
 7. I labelled the node, added a nodeSelector to enrolment and showed a pod staying Pending when no node matched.
 8. I created PDBs for the gateway and enrolment and compared the eviction API, kubectl delete and kubectl drain.
 9. I exposed the services step by step: ClusterIP with port-forward, NodePort usms-results-np on 30080, the gateway as a LoadBalancer, and usms-portal-ingress.
-10. I compared ECS and EKS for USMS, restarted Docker to prove persistence, and saved the values to configs/lab-08.env.
+10. I compared ECS and EKS for USMS, stopped and started Floci to prove persistence, and saved the values to configs/lab-08.env.
 11. I ran verify-lab-08.sh and a smoke test, wrote the cleanup script without running it, did Exercises 1 to 5 and cleaned up the load generator.
 
 ## 6. Results and Evidence
@@ -77,7 +77,7 @@ NodePort, LoadBalancer and Ingress.
 ![LoadBalancer](../../screenshots/lab08-step15-loadbalancer.png)
 ![Ingress](../../screenshots/lab08-step16-ingress.png)
 
-Persistence after a Docker restart and the verify script.
+Persistence after stopping and starting Floci and the verify script.
 
 ![Persistence](../../screenshots/lab08-step18-persistence.png)
 ![Verify](../../screenshots/lab08-verify.png)
@@ -112,7 +112,7 @@ I achieved the main goals. The HPA scaled enrolment from 2 to 3 under load and b
 
 Some results did not match the doc because of Floci. update-nodegroup-config failed with 400 InvalidArgument, which is the known issue for this lab, so the node group stayed 2 / 4 / 2 and that is the one failed check. The node group labels never reached the k3s node, so I added workload=usms and tier=app by hand. Ports 8081 and 8082 were not published on the rebuilt k3s container, so I used kubectl port-forward. There is no ingress controller on this build, so the Ingresses have no address.
 
-The biggest problem was restarts. After a Docker or laptop restart the cluster often stayed at CREATING, and the pods were stuck on a dead node. I fixed it by removing the k3s container, restarting Floci, deleting the old node and labelling the new one again. Because HPA events expire after about an hour, I also had to repeat the load test later to capture them.
+The biggest problem was restarts. After Floci, Docker or laptop restarts the cluster often stayed at CREATING, and the pods were stuck on a dead node. I fixed it by removing the k3s container, restarting Floci, deleting the old node and labelling the new one again. Because HPA events expire after about an hour, I also had to repeat the load test later to capture them.
 
 One thing surprised me in Exercise 3. A container with only a CPU limit did not give <unknown>, because Kubernetes copied the limit into the request. The HPA still worked, but it was dividing by a request nobody chose.
 

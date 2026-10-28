@@ -21,7 +21,7 @@ I scaled USMS on the Lab 07 EKS cluster by hand and with Horizontal Pod Autoscal
 - usms-results-ingress gives results its own path on the shared ALB group with a source IP condition (Exercise 4).
 - Evidence and IRSA readiness files for Lab 10 are in outputs/ and are not committed (Exercise 5).
 - verify-lab-08.sh gave PASS=33 FAIL=1. The one fail is the node group maxSize, because update-nodegroup-config fails on Floci.
-- After a Docker restart the state was still there (PERSISTENCE PROVEN in Step 18).
+- After stopping and starting Floci (floci-down.sh and floci-up.sh) the state was still there (PERSISTENCE PROVEN in Step 18).
 - I wrote the cleanup script but did not run it, because Lab 09 builds on this cluster.
 
 ## Files in this lab
@@ -45,7 +45,7 @@ I scaled USMS on the Lab 07 EKS cluster by hand and with Horizontal Pod Autoscal
 
 I used Path A, the Floci EKS cluster, which runs as a k3s container (Kubernetes v1.34.1+k3s1) behind https://localhost:6500.
 
-What worked: metrics-server, both HPAs scaling out and in, QoS classes, PDBs with the eviction API, the nodeSelector, ClusterIP, NodePort and the LoadBalancer Service (it got 172.17.0.3 from the k3s service load balancer), and Ingress objects being stored.
+What worked: metrics-server, usms-enrolment-hpa scaling out and in, usms-results-hpa reading 2%/60%, QoS classes, PDBs with the eviction API, the nodeSelector, ClusterIP, NodePort and the LoadBalancer Service (it got 172.17.0.3 from the k3s service load balancer), and Ingress objects being stored.
 
 What did not work and what I did instead:
 
