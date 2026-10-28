@@ -82,7 +82,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - Conditions: AbleToScale True, ScalingActive True with ValidMetricFound ("the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)"), and ScalingLimited False.
 - From now on the HPA owns spec.replicas of usms-enrolment.
 
-- The behavior block mapped to Lab 06 field by field: scaleTargetRef is RegisterScalableTarget on service/cluster/service; minReplicas and maxReplicas are MinCapacity and MaxCapacity; the cpu metric with averageUtilization 50 is TargetTrackingScaling on ECSServiceAverageCPUUtilization (but the HPA divides by the container request, ECS by the task's reserved CPU); scaleDown.stabilizationWindowSeconds 300 is ScaleInCooldown 300; scaleUp.stabilizationWindowSeconds with its policies is ScaleOutCooldown, plus rate limits; and there are no CloudWatch alarms, because the controller polls the metric itself.
+- The HPA spec mapped to Lab 06 field by field: scaleTargetRef is RegisterScalableTarget on service/cluster/service; minReplicas and maxReplicas are MinCapacity and MaxCapacity; the cpu metric with averageUtilization 50 is TargetTrackingScaling on ECSServiceAverageCPUUtilization (but the HPA divides by the container request, ECS by the task's reserved CPU); scaleDown.stabilizationWindowSeconds 300 is ScaleInCooldown 300; scaleUp.stabilizationWindowSeconds with its policies is ScaleOutCooldown, plus rate limits; and there are no CloudWatch alarms, because the controller polls the metric itself.
 
 ![HPA created](../screenshots/lab08-step08-hpa.png)
 

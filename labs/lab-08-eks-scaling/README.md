@@ -18,7 +18,7 @@ I scaled USMS on the Lab 07 EKS cluster by hand and with Horizontal Pod Autoscal
 - usms-results-hpa (Exercise 1) runs at 60% CPU with min 2 and max 6.
 - The gateway now runs 2 replicas, so its PDB allows 1 disruption (Exercise 2).
 - I found the two faults in the usms-reports HPA and fixed each with one field (Exercise 3).
-- usms-results-ingress gives results its own path on the shared ALB group with a source IP condition (Exercise 4).
+- usms-results-ingress gives results its own path with a source IP condition, in ALB group usms-portal (usms-portal-ingress would need the same group.name on real EKS) (Exercise 4).
 - Evidence and IRSA readiness files for Lab 10 are in outputs/ and are not committed (Exercise 5).
 - verify-lab-08.sh gave PASS=33 FAIL=1. The one fail is the node group maxSize, because update-nodegroup-config fails on Floci.
 - After stopping and starting Floci (floci-down.sh and floci-up.sh) the state was still there (PERSISTENCE PROVEN in Step 18).
