@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: usms-results-ingress
+  namespace: usms
+  labels:
+    app: usms-results
+    project: usms
+    lab: "05b"
+  annotations:
+    # Real EKS, with the AWS Load Balancer Controller. Inert locally.
+    # Join the SAME ALB as usms-portal-ingress, so no second load balancer is created.
+    alb.ingress.kubernetes.io/group.name: usms-portal
+    alb.ingress.kubernetes.io/group.order: "10"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    # Only the university network may use this rule. 203.0.113.0/24 is an EXAMPLE range.
+    alb.ingress.kubernetes.io/conditions.usms-results: >
+      [{"field":"source-ip","sourceIpConfig":{"values":["203.0.113.0/24"]}}]
+    alb.ingress.kubernetes.io/tags: Project=USMS,Tier=web,Lab=08
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /results
+            pathType: Prefix
+            backend:
+              service:
+                name: usms-results
+                port:
+                  number: 80

@@ -49,6 +49,8 @@ spec:
         project: usms
         tier: app
     spec:
+      nodeSelector:
+        workload: usms
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -129,7 +131,7 @@ metadata:
     project: usms
     tier: app
 spec:
-  minAvailable: 1
+  maxUnavailable: 1
   selector:
     matchLabels:
       app: usms-enrolment
