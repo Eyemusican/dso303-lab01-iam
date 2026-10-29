@@ -167,7 +167,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 - k3s's built in service load balancer gave EXTERNAL-IP 172.17.0.3 (the node's IP) and a NodePort was added automatically. The verify line: type=LoadBalancer clusterIP=10.43.204.146 nodePort=31650 external=172.17.0.3. So LoadBalancer contains NodePort contains ClusterIP.
 - From inside the cluster, http://172.17.0.3/ returned the gateway JSON.
 - Floci limitation: curl to localhost:8081 and 8082 got nothing. docker port showed the k3s container only publishes 6443 to 6500, so the _lb_ports_ ports were not published when Floci rebuilt the container during my recovery.
-- Fallback from the doc: kubectl port-forward svc/usms-gateway 8080:80, then localhost:8080 returned the gateway and /enrolment/ JSON. So I observed the ClusterIP, NodePort and LoadBalancer fields and the in-cluster address, but not the host port 8081.
+- Fallback from the doc: kubectl port-forward svc/usms-gateway 8080:80, then localhost:8080 returned the gateway and /enrolment/ JSON. So I observed the ClusterIP, NodePort and LoadBalancer fields and the in cluster address, but not the host port 8081.
 
 ![LoadBalancer Service](../screenshots/lab08-step15-loadbalancer.png)
 ![Only the API port is published](../screenshots/lab08-step15-ports.png)
@@ -177,7 +177,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 
 - kubectl get ingressclass returned nothing and no traefik, ingress or nginx controller pod was running, so this Floci build runs k3s without Traefik.
 - manifests/lab-08/60-ingress.yaml created usms-portal-ingress with /enrolment to usms-enrolment, /results to usms-results and / to usms-gateway. describe showed the backends resolved to the right pod IPs, but CLASS <none> and no ADDRESS, because no controller is acting on it. The Ingress is a valid stored object with nothing implementing it, so this rung is Conceptual on my build.
-- localhost:8081 gave no answer for any path, and the in-cluster test printed "No ingress address: no controller is implementing this object."
+- localhost:8081 gave no answer for any path, and the in cluster test printed "No ingress address: no controller is implementing this object."
 - On real EKS the longest matching path wins, so /enrolment/x goes to usms-enrolment even though / also matches. Lab 05's ALB used numeric rule priority instead. /enrolment through the Ingress also skips usms-gateway.
 - No controller question: on real EKS the AWS Load Balancer Controller would have run the same calls I ran by hand in Lab 05, in this order. First aws elbv2 create-load-balancer, an internet facing ALB in usms-public-subnet-a and -b. Then aws elbv2 create-target-group with --target-type ip, one per backend Service (enrolment, results, gateway), with the health check on /healthz. Then aws elbv2 create-listener on HTTP 80. Then aws elbv2 create-rule for /enrolment and /results, with / as the listener's default action. After that it keeps the targets registered and deregistered by watching the Endpoints, which ECS did for me in Lab 05. Ten paths would still be one ALB, not ten.
 
@@ -205,7 +205,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 | Where does that thing run? | in AWS, outside anything I own | inside the cluster, in the controller manager (on EKS, in the AWS run control plane) |
 | Where does the metric come from? | CloudWatch (AWS/ECS CPUUtilization, ALB RequestCountPerTarget, my own USMS/Enrolment metric) | metrics-server through the metrics.k8s.io API, CPU and memory only |
 | What does "50% CPU" mean - 50% of what? | 50% of the CPU reserved for the task in the task definition | 50% of the container's CPU request, so 25m of 50m per pod |
-| How is scale-in slowed down? | ScaleInCooldown 300 on the target tracking policy | behavior.scaleDown.stabilizationWindowSeconds 300 and at most 1 pod per 60 seconds |
+| How is scale in slowed down? | ScaleInCooldown 300 on the target tracking policy | behavior.scaleDown.stabilizationWindowSeconds 300 and at most 1 pod per 60 seconds |
 | What happens if there is no capacity for the new instance/pod? | Fargate finds capacity, so it does not really run out | the pod stays Pending until a node is added (Step 11's job), as in Step 9's warning |
 | What creates the alarms, if anything? | target tracking created two CloudWatch alarms for me (AlarmHigh and AlarmLow) | nothing, the controller polls the metric every 15 seconds |
 
@@ -243,7 +243,7 @@ If usms-enrolment had to handle ten times its traffic, I would start with dimens
 ## Step 19: configs/lab-08.env
 
 - 19 exports, every value looked up live. The only empty one is USMS_INGRESS_CLASS, which the doc lists as an expected exception because no ingress controller is running (Step 16).
-- hpa: 2..8 at 50% cpu, scale-in window 300s. nodeport 30080, gateway LoadBalancer with nodePort 31650.
+- hpa: 2..8 at 50% cpu, scale in window 300s. nodeport 30080, gateway LoadBalancer with nodePort 31650.
 - The node group values are 2 / 4 / 2, not the doc's 2 / 6 / 3, because the Step 10 update failed on my Floci build. The file records what is actually true.
 
 ![lab-08.env](../screenshots/lab08-step19-env.png)

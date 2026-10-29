@@ -20,7 +20,7 @@ I authorised the six rules first and revoked the default second, so there was ne
 
 **usms-bastion-sg is different in kind.** The other groups protect servers, so their egress should be as small as the work they do; a jump host's whole job is to start SSH sessions to the machines it administers. So its egress should be tcp/22 to usms-app-sg (and to usms-db-sg if the database needs admin access), not allow-all.
 
-**169.254.169.254** is a link-local address handled by the host the instance runs on. Metadata requests never leave through the instance's network interface, so security groups never see them; that is why IMDSv2 and the hop limit (Step 11) are the controls for it, not an egress rule.
+**169.254.169.254** is a link local address handled by the host the instance runs on. Metadata requests never leave through the instance's network interface, so security groups never see them; that is why IMDSv2 and the hop limit (Step 11) are the controls for it, not an egress rule.
 
 ![Exercise 1](../../screenshots/lab09-ex1.png)
 
@@ -69,7 +69,7 @@ scripts/utilities/usms-exposure-report.sh prints one line per network interface 
 
 For a public interface with no ingress rule at all (the NAT example) I chose ADDRESSABLE, not EXPOSED: packets can reach the address, but nothing admits a new connection, so it is one rule away from exposed and worth listing.
 
-It runs from any directory (it finds configs/ from BASH_SOURCE), takes no arguments and has no hard-coded IDs. It handles a group that is not in the VPC listing (fetched on its own, noted if that fails), an interface with no description, a subnet with no explicit route table (it uses the VPC's main table), and an interface whose instance is gone. It uses set -uo pipefail but not -e, so one failed lookup does not stop the report for every other interface.
+It runs from any directory (it finds configs/ from BASH_SOURCE), takes no arguments and has no hard coded IDs. It handles a group that is not in the VPC listing (fetched on its own, noted if that fails), an interface with no description, a subnet with no explicit route table (it uses the VPC's main table), and an interface whose instance is gone. It uses set -uo pipefail but not -e, so one failed lookup does not stop the report for every other interface.
 
 **Result:** identical output from ~ and from labs/lab-09-security. usms-db-01 and usms-db-02 are ISOLATED; usms-web-01 is NO-ADDRESS, because Floci gave it no public address (the Lab 03 limitation). On real AWS, with its Elastic IP and 80/443 from 0.0.0.0/0, it would be EXPOSED. Floci does not create interfaces for the ALB, the NAT or the Fargate tasks, so they do not appear.
 
