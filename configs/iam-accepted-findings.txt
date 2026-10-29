@@ -1,0 +1,3 @@
+# Accepted IAM audit findings. Read by scripts/utilities/usms-iam-audit.sh.
+# Format: role | text the finding contains | written reason (no reason, no entry)
+usms-ec2-app-role | service principal ec2.amazonaws.com with NO Condition | EC2 gets these credentials through the instance metadata service and sends no aws:SourceArn for instance profiles, so a confused deputy condition would deny the instance itself. Compensating controls: USMSDeployBase explicitly denies passing any role to EC2, and IMDSv2 required with hop limit 1 (Lab 09 Step 11, designed, not stored by Floci).
