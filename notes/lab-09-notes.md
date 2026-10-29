@@ -18,15 +18,7 @@
 - outputs/lab-09-pre-verify.txt: lab-02 PASS=33 FAIL=0, lab-03 PASS=34 FAIL=2, lab-04 PASS=39 FAIL=0, lab-05 PASS=47 FAIL=2, lab-06 PASS=39 FAIL=3.
 - The doc's tail -1 did not work for lab-05 and lab-06, because when a check fails those scripts print a REMEDY help text after the summary. I picked out the PASS= FAIL= line with grep instead and rebuilt the file. Step 18 will use the same method.
 - Every failure is one I recorded in an earlier lab, not something new. Lab 03: the private key cannot be chmod 600 on Windows, and usms-web-01 has no public address on Floci. Lab 05: healthCheckGracePeriodSeconds is not stored, so lab-05.env has USMS_SVC_GRACE_PERIOD=None. Lab 06: PutScheduledAction is not supported, so the three scheduled action checks fail. Lab 04 is FAIL=0 because I did Lab 05 Exercise 2.
-- These are the same numbers my Lab 06 notes recorded, so nothing broke between labs. Step 18 has to give the same lines.
-
-![Step 2 baseline](../screenshots/lab09-step02-baseline.png)
-
-## Step 2: security baseline
-
-- outputs/lab-09-pre-verify.txt: lab-02 PASS=33 FAIL=0, lab-03 PASS=34 FAIL=2, lab-04 PASS=39 FAIL=0, lab-05 PASS=47 FAIL=2, lab-06 PASS=39 FAIL=3.
-- The doc's tail -1 did not work for lab-05 and lab-06, because when a check fails those scripts print a REMEDY help text after the summary. I picked out the PASS= FAIL= line with grep instead and rebuilt the file. Step 18 will use the same method.
-- Every failure is one I recorded in an earlier lab, not something new. Lab 03: the private key cannot be chmod 600 on Windows, and usms-web-01 has no public address on Floci. Lab 05: healthCheckGracePeriodSeconds is not stored, so lab-05.env has USMS_SVC_GRACE_PERIOD=None. Lab 06: PutScheduledAction is not supported, so the three scheduled action checks fail. Lab 04 is FAIL=0 because I did Lab 05 Exercise 2.
+- Git Bash keeps no history file on my laptop, so the history check cannot be run. I never ran floci start, docker compose down -v or docker volume prune during this lab; I only used floci-up.sh and floci-down.sh, which stop and start the container and keep the state.
 - These are the same numbers my Lab 06 notes recorded, so nothing broke between labs. Step 18 has to give the same lines.
 
 ![Step 2 baseline](../screenshots/lab09-step02-baseline.png)
@@ -37,6 +29,8 @@
 - not available: get-account-authorization-details, accessanalyzer list-analyzers and get-credential-report.
 - Unlike the doc's example, simulate-principal-policy answered, so I am on Path B with simulation as a bonus. Path A needs everything to answer, and three calls did not. The skel probes only prove the CLI knows the operation, not that Floci implements it.
 - An API call is decided by IAM and fails with an error naming an action; a packet is decided by routing, security groups and NACLs and fails with a timeout. Floci does neither, so I must not wait for an AccessDenied as proof.
+
+- Floci build, for the Known Issues record: container image floci/floci:latest, version label 2.0.1. The two Lab 09 limitations (boundary not stored, modify-instance-metadata-options UnsupportedOperation) were on this build.
 
 ![Step 3 probe](../screenshots/lab09-step03-probe.png)
 
@@ -131,11 +125,11 @@
 ## Step 10: rotating the access key
 
 - Order: create a second key, move every user of the old key to the new one, deactivate the old key (can be undone), and only then delete it (cannot be undone). Deactivating first is what makes it safe.
-- Part 1: usms-dev-01 had exactly one key, AKIAG612UGS5FV67J078, Active, created 2026-08-21 in Lab 01. get-access-key-last-used gave N/A, which is normal on Floci.
-- Part 2: create-access-key wrote the new key straight into outputs/usms-dev-01-access-key-new.json, so the secret never appeared on screen. git check-ignore named .gitignore:1:outputs/*. New key AKIAQXQKHH64S63NAJHS.
+- Part 1: usms-dev-01 had exactly one key, AKIA...J078, Active, created 2026-08-21 in Lab 01. get-access-key-last-used gave N/A, which is normal on Floci.
+- Part 2: create-access-key wrote the new key straight into outputs/usms-dev-01-access-key-new.json, so the secret never appeared on screen. git check-ignore named .gitignore:1:outputs/*. New key AKIA...NAJHS.
 - Part 3: I pointed the usms-dev profile at the new key. It still answered as user/usms-dev-01 and aws configure get showed the new key ID.
 - Part 4: the old key went Inactive and the profile still worked, so nothing depended on it. On a real system I would wait a day or a week at this point; the lab compresses that wait.
-- Part 5: I deleted the inactive key. usms-dev-01 now has exactly one key, AKIAQXQKHH64S63NAJHS, created today, and the profile still answers. The only key file in outputs/ is the new one, which is git-ignored, and git ls-files outputs/ shows only .gitkeep.
+- Part 5: I deleted the inactive key. usms-dev-01 now has exactly one key, AKIA...NAJHS, created today, and the profile still answers. The only key file in outputs/ is the new one, which is git-ignored, and git ls-files outputs/ shows only .gitkeep.
 - On a real account I would not keep a long-lived key at all. People would sign in through IAM Identity Center or federation and get temporary credentials, and workloads would use roles. The course keeps one key because Lab 02's assume-role needs a named user.
 
 ![Rotate: create, move, deactivate](../screenshots/lab09-step10-rotate.png)
@@ -152,7 +146,7 @@
 
 ## Step 12: security group audit script
 
-- scripts/utilities/usms-sg-audit.sh asks four questions of every group in usms-vpc: who can reach me, what can I reach, is the source a group or an address, and is the group attached to anything. It changes nothing and exits 1 on HIGH findings (exit code 1). Full report: outputs/lab-09-sg-findings-before.txt.
+- scripts/utilities/usms-sg-audit.sh asks four questions of every group in usms-vpc: who can reach me, what can I reach, is the source a group or an address, and is the group attached to anything. It changes nothing and is meant to exit 1 on HIGH findings, but the doc's version gave exit code 0, because it ends with rm (fixed in Step 13). Full report: outputs/lab-09-sg-findings-before.txt.
 - Result: HIGH=4 MED=11 LOW=8 groups=8. The doc's example has 3/6/1 over 5 groups.
 - usms-alb-sg: tcp/80 and tcp/443 from 0.0.0.0/0 (HIGH). Accepted risk: it is the internet-facing load balancer, argued in Lab 05. The 443 rule is from my Lab 05 exercise.
 - usms-app-sg: tcp/80 and tcp/443 from 0.0.0.0/0 (HIGH). Open finding, because the web instance is a second internet entry point from before the load balancer (Exercise 4). tcp/22 from 10.0.0.0/16 (MED): any compromised machine anywhere in the VPC can reach SSH, fixed in Step 16. It also has a second tcp/22 rule with no source at all (from <none>), a broken rule left over from an earlier lab, which I deal with in Step 16 too.
@@ -160,6 +154,7 @@
 - Extra groups in my VPC: usms-bastion-sg (Lab 02 Exercise 2, SSH from 203.0.113.10/32), usms-eks-cluster-sg (Lab 07, tcp/443 from 10.0.0.0/16) and usms-exam-sg, which is not part of the lab design and has a source of 10.10.0.0/16, which is not even my VPC range.
 - Every one of the 8 groups still has the default allow-all egress (MED). Steps 13 to 15 fix it for enrolment, the load balancer and the database, and Exercise 1 for usms-app-sg.
 - Floci limitation: describe-network-interfaces returned 0 for every group, so all 8 got LOW "attached to no network interface", even though usms-web-01, usms-db-01, the ALB and the tasks use these groups. Floci does not model the interfaces, so I cannot trust that count here.
+- Correction from Step 13: the 0 interfaces for usms-web-01 and usms-db-01 were a bug in the doc's script on Windows, not Floci. After the fix usms-app-sg shows 1 and usms-db-sg 2. Only the ALB, the NAT and the Fargate tasks are really missing on Floci.
 - The audit cannot tell an accepted 0.0.0.0/0 (the ALB) from a real finding (the web instance). An audit tool gives findings, not verdicts.
 
 ![SG audit part 1](../screenshots/lab09-step12-sg-audit-1.png)
@@ -237,7 +232,7 @@
 
 ## Step 19: configs/lab-09.env
 
-- 16 exports, all looked up live (unquoted heredoc), so a filled-in value is proof the resource exists: the ARNs of USMSStudentDataReadOnly, USMSDeployBase, USMSPermissionsBoundary, usms-transcripts-reader-role and usms-deploy-role, usms-bastion-sg sg-f2639784fb4f0529e, prefix list pl-63a5400a, imds tokens optional, dev key created 2026-10-29T06:22:17, allow-all egress left 0 and review date 2026-10-29.
+- 16 exports (17 after Exercise 5 added USMS_BUCKET_POLICY_DRAFT), all looked up live (unquoted heredoc), so a filled-in value is proof the resource exists: the ARNs of USMSStudentDataReadOnly, USMSDeployBase, USMSPermissionsBoundary, usms-transcripts-reader-role and usms-deploy-role, usms-bastion-sg sg-f2639784fb4f0529e, prefix list pl-63a5400a, imds tokens optional, dev key created 2026-10-29T06:22:17, allow-all egress left 0 and review date 2026-10-29.
 - No secrets, and grep -c AKIA gives 0, so not even the access key ID is in the file. It records the rotation date instead; the key ID lives only in outputs/, which git ignores.
 - imds tokens is honestly optional, because Step 11 did not take on Floci. The doc allows that.
 - The doc's USMS_EGRESS_ALLOW_ALL_REMAINING had the same missing SecurityGroups[0]. bug, and its || echo 0 would hide the error and always write 0. I used the doc's own alternative and worked out REMAINING first with a fixed query (0). I also looked up the S3 prefix list again, because Floci had been restarted.
@@ -266,7 +261,7 @@
 
 ## Section 14: Review questions
 
-**1. Why NOTHING BROKE is a strong result.** Five scripts written before this lab, checking more than 200 properties of Labs 2 to 6, gave exactly the same lines after I changed trust policies, egress on three groups and the SSH rule. So I added controls without changing what the system does. A plausible break would have been a Lab 02 or Lab 04 check that asserts usms-app-sg allows SSH from 10.0.0.0/16, or that a group still has its default egress. If that had happened I would read the check, decide whether it describes the old design (like Lab 05 Step 13), and update the check with a note saying why, instead of undoing the security fix.
+**1. Why NOTHING BROKE is a strong result.** Five scripts written before this lab, with 199 checks between them on Labs 2 to 6, gave exactly the same lines after I changed trust policies, egress on three groups and the SSH rule. So I added controls without changing what the system does. A plausible break would have been a Lab 02 or Lab 04 check that asserts usms-app-sg allows SSH from 10.0.0.0/16, or that a group still has its default egress. If that had happened I would read the check, decide whether it describes the old design (like Lab 05 Step 13), and update the check with a note saying why, instead of undoing the security fix.
 
 **2. Attaching the boundary as an ordinary policy.** It stops being a ceiling and becomes a grant. Upwards, usms-deploy-role would get everything in it on Resource "*": ecs:*, elasticloadbalancing:*, logs:*, cloudwatch:*, s3 Get, List and PutObject, and iam:PassRole on any role with no condition. Downwards, the role has no ceiling any more, so a later broad policy is not capped, although the Deny statements still apply as identity denies. It is dangerous straight away, because iam:PassRole on "*" is the escalation path from Step 8. The Section 8 check "the boundary is attached to NOTHING as an ordinary policy" catches it, and the IAM audit would also flag the PassRole.
 
@@ -287,3 +282,10 @@
 - The evidence files in outputs/ (pre and post restart, pre and post verify, IMDS before and after) stay until my report is submitted, as the doc says, and are not committed. I did not run any cleanup script.
 
 ![Section 15 checks](../screenshots/lab09-section15.png)
+
+## Step 20: commit
+
+- Before git add I checked: git check-ignore -v named .gitignore:1:outputs/* for both outputs/usms-dev-01-access-key-new.json and outputs/lab-09-identity-inventory.json, and git ls-files outputs/ showed only outputs/.gitkeep.
+- The doc's grep -l '\$' policies/*.json lists only usms-self-manage-credentials.json from Lab 01. Its ${aws:username} is an IAM policy variable that AWS fills in per user, so it is meant to be there. None of the Lab 09 documents has a $.
+- configs/lab-09.env and configs/iam-accepted-findings.txt have 0 AKIA matches.
+- I staged the Lab 09 files by name (75 files), not the whole folder, so my scratch file sc.md stayed out, and committed them as "Updating lab 9" (b5dc5f4).

@@ -79,7 +79,7 @@ It runs from any directory (it finds configs/ from BASH_SOURCE), takes no argume
 
 ### 1. The second front door
 
-usms-app-sg admits tcp/80 and tcp/443 from 0.0.0.0/0 because usms-web-01 was the original web server from Labs 02 and 03, before there was a load balancer. Since then Lab 05 put the enrolment API behind usms-enrolment-alb, and this lab narrowed SSH to usms-bastion-sg and wrote its egress, but the web server is still reachable straight from the internet. It also carries usms-ec2-app-role, which can read and write transcripts, so a bug in it is a direct path to the data.
+Lab 02 Step 14 created usms-app-sg with tcp/80 from 0.0.0.0/0 and tcp/22 from 10.0.0.0/16, and its Your turn added tcp/443 from 0.0.0.0/0. usms-app-sg admits tcp/80 and tcp/443 from 0.0.0.0/0 because usms-web-01 was the original web server from Labs 02 and 03, before there was a load balancer. Since then Lab 05 put the enrolment API behind usms-enrolment-alb, and this lab narrowed SSH to usms-bastion-sg and wrote its egress, but the web server is still reachable straight from the internet. It also carries usms-ec2-app-role, which can read and write transcripts, so a bug in it is a direct path to the data.
 
 It should not stay reachable directly. Moving it behind the load balancer needs a target group for usms-web-01, a listener rule on the existing HTTP:80 listener, usms-app-sg admitting tcp/80 from usms-alb-sg instead of 0.0.0.0/0, the load balancer allowed to send tcp/80 to usms-app-sg, and then removing the Elastic IP. What would break: anyone using the Elastic IP or a DNS name that points at it, and HTTPS on the instance itself unless the certificate moves to the load balancer.
 

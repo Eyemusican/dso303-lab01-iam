@@ -108,7 +108,7 @@ check "its iam:PassRole carries an iam:PassedToService condition" \
 check "USMSPermissionsBoundary exists" \
   "aws iam list-policies --scope Local --query \"Policies[?PolicyName=='USMSPermissionsBoundary'].Arn | [0]\" --output text | grep -q '^arn:'"
 check "the boundary is attached to NOTHING as an ordinary policy" \
-  "test \"\$(aws iam list-entities-for-policy --policy-arn arn:aws:iam::$USMS_ACCOUNT_ID:policy/USMSPermissionsBoundary --query 'length(PolicyRoles)' --output text)\" = 0"
+  "test \"\$(aws iam list-entities-for-policy --policy-arn arn:aws:iam::$USMS_ACCOUNT_ID:policy/USMSPermissionsBoundary --query 'length([PolicyRoles[], PolicyUsers[], PolicyGroups[]][])' --output text)\" = 0"
 check "usms-deploy-role exists" "aws iam get-role --role-name usms-deploy-role"
 check "usms-deploy-role HAS a permissions boundary" \
   "aws iam get-role --role-name usms-deploy-role --query 'Role.PermissionsBoundary.PermissionsBoundaryArn' --output text | grep -q 'USMSPermissionsBoundary'"
